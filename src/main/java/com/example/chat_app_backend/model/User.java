@@ -26,9 +26,15 @@ public class User {
     
     private Instant createdAt;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = false)
+    private Profile profile;
+
     @PrePersist
     protected void onCreate() {
         createdAt = Instant.now();
+        if (profile == null) {
+            profile = new Profile(this);
+        }
     }
 
     public User() {}
@@ -60,4 +66,7 @@ public class User {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public Profile getProfile() { return profile; }
+    public void setProfile(Profile profile) { this.profile = profile; }
 }
