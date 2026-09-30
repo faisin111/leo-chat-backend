@@ -552,3 +552,180 @@ To become a top-level backend engineer on this project, master in order:
 3. **Advanced:** horizontal scaling (Redis pub/sub/brokers), async pipelines (Kafka/RabbitMQ), observability (metrics, tracing), load testing, data partitioning and retention, Kubernetes, threat modeling.
 
 For each new task, ask: *What can go wrong? What if the request is retried? What if two users do this at once? What if the user is not allowed? What if the server restarts mid-way?* If the code handles those five, it is production-grade.
+
+---
+
+## 17. Pattern: Single Admin (bootstrap, guard, transfer)
+
+### Bootstrap (idempotent, safe with many instances)
+
+```java
+@Component
+@RequiredArgsConstructor
+@Slf4j
+class AdminBootstrapRunner implements ApplicationRunner {
+
+  private final UserRepository users;
+  private final PasswordEncoder encoder;
+  private final AppProperties props;
+  private final Clock clock;
+
+  @Override
+  @Transactional
+  public void run(ApplicationArguments args) {
+    if (users.existsByRole(Role.ADMIN)) return;
+    var a = props.admin();
+    if (a == null || isBlank(a.email()) || isBlank(a.username()) || isBlank(a.password())) {
+      log.warn("admin_missing no admin exists and ADMIN_* env variables are not set");
+      return;
+    }
+    try {
+      users.saveAndFlush(User.builder()
+          .id(UuidCreator.getTimeOrderedEpoch()).role(Role.ADMIN).status(UserStatus.ACTIVE)
+          .username(a.username()).email(a.email()).displayName("Administrator")
+          .passwordHash(encoder.encode(a.password())).mustChangePassword(true)
+          .createdAt(clock.instant()).build());
+      log.info("admin_bootstrapped username={}", a.username());
+    } catch (DataIntegrityViolationException e) {
+      log.info("admin_already_created_by_another_instance");   // uq_single_admin protected us
+    }
+  }
+}
+```
+
+### Registration never accepts a role
+
+```java
+User user = User.builder()
+    .role(Role.USER)                    // hard-coded, never from the request DTO
+    .status(UserStatus.ACTIVE) /* ... */ .build();
+```
+
+### Security config (three layers)
+
+```java
+@Configuration
+@EnableMethodSecurity
+class SecurityConfig {
+  @Bean SecurityFilterChain chain(HttpSecurity http, JwtAuthFilter jwt) throws Exception {
+    return http
+      .csrf(AbstractHttpConfigurer::disable)
+      .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+      .authorizeHttpRequests(a -> a
+        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh",
+                         "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
+                         "/api/v1/auth/verify-email", "/api/v1/auth/resend-verification",
+                         "/actuator/health/**", "/ws/**").permitAll()
+        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")            // layer 1: URL
+        .anyRequest().authenticated())
+      .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
+      .build();
+  }
+}
+
+@Component("adminGuard")
+@RequiredArgsConstructor
+class AdminGuard {                                                        // layer 3: live DB check
+  private final UserRepository users;
+  boolean isCurrentAdmin(UUID userId) {
+    return users.existsByIdAndRoleAndStatus(userId, Role.ADMIN, UserStatus.ACTIVE);
+  }
+}
+// layer 2 + 3 on the controller/service:
+// @PreAuthorize("hasRole('ADMIN') and @adminGuard.isCurrentAdmin(authentication.principal.id)")
+```
+Add `springdoc` paths (`/swagger-ui/**`, `/v3/api-docs/**`) to `permitAll` **only** in `local` and `test` profiles.
+
+### Ownership transfer (atomic, one admin at all times)
+
+```java
+@Transactional
+public void transferOwnership(UUID adminId, UUID targetId, String password) {
+  User admin = users.findById(adminId).orElseThrow();
+  if (!encoder.matches(password, admin.getPasswordHash())) throw new ForbiddenException("Wrong password");
+  User target = users.findById(targetId).orElseThrow(() -> new NotFoundException("User not found"));
+  if (target.getStatus() != UserStatus.ACTIVE || target.getId().equals(adminId))
+    throw new BusinessRuleException("Target must be another active user");
+
+  admin.setRole(Role.USER);
+  users.saveAndFlush(admin);            // demote FIRST so uq_single_admin is never violated
+  target.setRole(Role.ADMIN);
+  users.saveAndFlush(target);
+
+  refreshTokens.revokeAllForUser(adminId);
+  refreshTokens.revokeAllForUser(targetId);
+  sessionCloser.closeAll(adminId, targetId);
+  audit.record(adminId, "OWNERSHIP_TRANSFERRED", "USER", targetId, Map.of());
+}
+```
+
+### Protecting the admin from admin tools
+
+```java
+void assertNotAdminAccount(User target) {
+  if (target.getRole() == Role.ADMIN) throw new BusinessRuleException("The admin account cannot be modified");
+}
+```
+Call it in status change, delete, force-logout, and block flows.
+
+### Audit helper
+
+```java
+@Service @RequiredArgsConstructor
+public class AuditService {
+  private final AuditLogRepository repo; private final Clock clock;
+  @Transactional(propagation = Propagation.MANDATORY)      // audit is part of the same transaction
+  public void record(UUID actor, String action, String targetType, UUID targetId, Map<String, ?> details) { /* save */ }
+}
+```
+
+---
+
+## 18. Pattern: Clean Swagger (see documentation section 19)
+
+Use the templates in documentation 19.4 to 19.9 as the default. Habits:
+
+1. Write the controller **and** its Swagger annotations together; an endpoint without them is unfinished.
+2. Put shared errors in `@StandardErrors`; never copy-paste `@ApiResponse` blocks for 400/401/403/500.
+3. Every DTO field has `@Schema(description, example)`. Examples must be realistic and consistent across endpoints (same demo IDs, same usernames).
+4. Summaries are short imperative titles; descriptions state permission, side effects, limits, and idempotency.
+5. One `@Tag` per controller from the numbered list; `operationId` = `tag_action`.
+
+### Contract test template
+
+```java
+@SpringBootTest(webEnvironment = RANDOM_PORT) @Testcontainers
+class OpenApiContractIT {
+  @Autowired TestRestTemplate rest;
+
+  @Test
+  void everyOperation_isDocumentedProperly() throws Exception {
+    JsonNode api = new ObjectMapper().readTree(rest.getForObject("/v3/api-docs", String.class));
+    Set<String> ids = new HashSet<>();
+    api.get("paths").fields().forEachRemaining(path ->
+      path.getValue().fields().forEachRemaining(op -> {
+        JsonNode o = op.getValue();
+        String where = op.getKey().toUpperCase() + " " + path.getKey();
+        assertThat(o.hasNonNull("summary")).as(where + " summary").isTrue();
+        assertThat(ids.add(o.path("operationId").asText())).as(where + " unique operationId").isTrue();
+        assertThat(o.path("tags").size()).as(where + " one tag").isEqualTo(1);
+        if (path.getKey().startsWith("/api/v1/admin/"))
+          assertThat(o.path("responses").has("403")).as(where + " 403").isTrue();
+      }));
+  }
+}
+```
+
+### Admin access test template
+
+```java
+@Test void adminRoutes_rejectUserToken_and_anonymous() {
+  for (String route : adminGetRoutes()) {
+    assertThat(getWithToken(route, userToken).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(getWithToken(route, null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+}
+@Test void secondAdmin_isRejectedByDatabase() {
+  assertThatThrownBy(() -> insertUserWithRole(Role.ADMIN)).isInstanceOf(DataIntegrityViolationException.class);
+}
+```

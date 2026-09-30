@@ -80,6 +80,18 @@ Work on **one roadmap item at a time**, in order: Basic → Medium → Advanced.
 
 ---
 
+### Roles and admin (single-admin system)
+- Only two roles exist: `USER` and `ADMIN`. **There is exactly one admin.** Never add code that creates, promotes, or accepts an admin from a request. No `role` field in any request DTO.
+- The admin is created only by `AdminBootstrapRunner` (env `ADMIN_*`) and moved only by `POST /admin/transfer-ownership`. Keep the DB index `uq_single_admin`; never drop or weaken it.
+- Every admin endpoint needs all three: URL rule under `/api/v1/admin/**`, `@PreAuthorize("hasRole('ADMIN')")`, and a live DB role/status check. Every admin mutation writes an `audit_logs` row.
+- The admin must not be able to read private messages (only reported ones, audit-logged) and must not be able to disable, ban, delete, or demote themselves.
+
+### Swagger / OpenAPI (mandatory for every endpoint)
+- Follow `PROJECT_DOCUMENTATION.md` section 19 exactly: one `@Tag` from the numbered list, `@Operation` with short imperative `summary`, `description`, and unique `operationId` (`tag_action`), documented success response with example, `@StandardErrors` plus endpoint-specific errors, `@Parameter` on all params, `@Schema` on DTO fields.
+- Public routes use `@PublicEndpoint`; admin routes use `@PreAuthorize` (the badge is added automatically). Never expose entities in schemas.
+- Endpoint or DTO changed = Swagger annotations changed **in the same change**. The OpenAPI contract test must pass.
+- Swagger UI is disabled in `prod`. Do not enable it there.
+
 ## 5. When to Stop and Ask
 
 Ask the human before proceeding if:
@@ -147,7 +159,7 @@ docker compose up -d              # Postgres, Redis (and MinIO from Phase 2)
 - [ ] Flyway migration added if the schema changed
 - [ ] Unit + integration tests added and passing (`./mvnw clean verify`)
 - [ ] No secrets, debug code, or unused code; formatter passes
-- [ ] OpenAPI annotations updated
+- [ ] Swagger annotations complete (section 19.8) and contract test passing; admin rules respected
 - [ ] Logs safe and useful
 - [ ] `docs/PROGRESS.md` updated
 
@@ -185,5 +197,7 @@ What was done, in 2-4 lines. Roadmap item: <ID>
 - `@Transactional` on private methods or self-invoked methods (it does not work).
 - `FetchType.EAGER` on collections; N+1 queries.
 - Hard-coded secrets, URLs, or limits.
+- Adding an endpoint without Swagger annotations or without a role/permission decision.
+- Creating a second admin, or a `role` field in a request body.
 - "Fixing" a failing test by deleting or loosening the assertion.
 - Big-bang refactors mixed with features.
