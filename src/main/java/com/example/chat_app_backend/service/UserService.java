@@ -31,10 +31,12 @@ public class UserService {
 
         User user = userOpt.get();
         UserProfileResponse profile = new UserProfileResponse(
-                user.getId(), 
-                user.getUsername(), 
-                user.getEmail(), 
-                user.getRole()
+                user.getId(), user.getUsername(), user.getEmail(), user.getRole(),
+                user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
+                user.getProfile() != null ? user.getProfile().getPhoneNumber() : null,
+                user.getProfile() != null ? user.getProfile().getBio() : null,
+                user.getProfile() != null ? user.getProfile().getAge() : null,
+                user.getProfile() != null ? user.getProfile().getRegion() : null
         );
 
         return ResponseEntity.ok(profile);
@@ -45,4 +47,28 @@ public class UserService {
         return getUserById(userDetails.getId());
     }
 
+    public ResponseEntity<?> updateProfile(com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Optional<User> userOpt = userRepository.findById(userDetails.getId());
+        
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse(AppConstants.ERR_USER_NOT_FOUND));
+        }
+
+        User user = userOpt.get();
+        com.example.chat_app_backend.model.Profile profile = user.getProfile();
+        if (profile == null) {
+            profile = new com.example.chat_app_backend.model.Profile(user);
+            user.setProfile(profile);
+        }
+        
+        if (request.profilePictureUrl() != null) profile.setProfilePictureUrl(request.profilePictureUrl());
+        if (request.phoneNumber() != null) profile.setPhoneNumber(request.phoneNumber());
+        if (request.bio() != null) profile.setBio(request.bio());
+        if (request.age() != null) profile.setAge(request.age());
+        if (request.region() != null) profile.setRegion(request.region());
+        
+        userRepository.save(user);
+        return ResponseEntity.ok(new MessageResponse("Profile updated successfully"));
+    }
 }

@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
 
 import java.util.UUID;
 
@@ -14,6 +14,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/users")
 @Tag(name = "User Operations", description = "Endpoints for retrieving user profiles and directories")
+@StandardErrors
 public class UserController {
 
     @Autowired
@@ -31,4 +32,9 @@ public class UserController {
         return userService.getUserById(id);
     }
 
+    @Operation(summary = "Update Profile", description = "Allows the current user to update their phone number, bio, age, and region.")
+    @PatchMapping("/me/profile")
+    public ResponseEntity<?> updateProfile(@RequestBody com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
+        return userService.updateProfile(request);
+    }
 }

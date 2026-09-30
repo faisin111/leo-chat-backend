@@ -28,7 +28,14 @@ public class AdminService {
 
     public ResponseEntity<?> getAllUsers() {
         List<UserProfileResponse> users = userRepository.findAll().stream()
-                .map(user -> new UserProfileResponse(user.getId(), user.getUsername(), user.getEmail(), user.getRole()))
+                .map(user -> new UserProfileResponse(
+                        user.getId(), user.getUsername(), user.getEmail(), user.getRole(),
+                        user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
+                        user.getProfile() != null ? user.getProfile().getPhoneNumber() : null,
+                        user.getProfile() != null ? user.getProfile().getBio() : null,
+                        user.getProfile() != null ? user.getProfile().getAge() : null,
+                        user.getProfile() != null ? user.getProfile().getRegion() : null
+                ))
                 .collect(Collectors.toList());
                 
         return ResponseEntity.ok(users);

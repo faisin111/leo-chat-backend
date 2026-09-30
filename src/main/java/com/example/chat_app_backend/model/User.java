@@ -26,9 +26,15 @@ public class User {
     
     private Instant createdAt;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = false)
+    private Profile profile;
+
     @PrePersist
     protected void onCreate() {
         createdAt = Instant.now();
+        if (profile == null) {
+            profile = new Profile(this);
+        }
     }
 
     public User() {}
@@ -52,12 +58,12 @@ public class User {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public String getProfilePictureUrl() { return profilePictureUrl; }
-    public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
-
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public Profile getProfile() { return profile; }
+    public void setProfile(Profile profile) { this.profile = profile; }
 }
