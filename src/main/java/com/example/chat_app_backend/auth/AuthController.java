@@ -134,4 +134,48 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
                 .body(new MessageResponse("Successfully logged out of all sessions"));
     }
+
+    @Operation(summary = "Change Password", description = "Requires current password; revokes other sessions; clears must_change_password")
+    @PostMapping("/change-password")
+    public ResponseEntity<MessageResponse> changePassword(@Valid @RequestBody com.example.chat_app_backend.auth.dto.ChangePasswordRequest request, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        authService.changePassword(userDetails.getId(), request);
+        ResponseCookie jwtCookie = jwtUtils.getCleanJwtCookie();
+        ResponseCookie jwtRefreshCookie = jwtUtils.getCleanJwtRefreshCookie();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                .body(new MessageResponse("Password changed successfully, all sessions revoked."));
+    }
+
+    @SecurityRequirements()
+    @Operation(summary = "Forgot Password", description = "Email a reset token (always responds 202, no user enumeration)")
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.accepted().build();
+    }
+
+    @SecurityRequirements()
+    @Operation(summary = "Reset Password", description = "Set new password with token")
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(@Valid @RequestBody com.example.chat_app_backend.auth.dto.ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(new MessageResponse("Password reset successfully"));
+    }
+
+    @SecurityRequirements()
+    @Operation(summary = "Verify Email", description = "Confirm email token")
+    @PostMapping("/verify-email")
+    public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody com.example.chat_app_backend.auth.dto.VerifyEmailRequest request) {
+        authService.verifyEmail(request);
+        return ResponseEntity.ok(new MessageResponse("Email verified successfully"));
+    }
+
+    @SecurityRequirements()
+    @Operation(summary = "Resend Verification", description = "Resend verification email (rate-limited)")
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerification(@Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
+        authService.resendVerification(request);
+        return ResponseEntity.accepted().build();
+    }
 }

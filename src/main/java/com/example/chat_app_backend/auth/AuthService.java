@@ -81,11 +81,7 @@ public class AuthService {
             }
         }
 
-        User user = new User(signUpRequest.username(),
-                signUpRequest.email(),
-                encoder.encode(signUpRequest.password()),
-                signUpRequest.username(),
-                role);
+        User user = new User(signUpRequest.username(), signUpRequest.email(), encoder.encode(signUpRequest.password()), role, signUpRequest.username());
 
         userRepository.save(user);
     }
@@ -177,5 +173,35 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(ERR_SHA_NOT_AVAILABLE, e);
         }
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, com.example.chat_app_backend.auth.dto.ChangePasswordRequest request) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        if (!encoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new RuntimeException("Invalid current password");
+        }
+        user.setPasswordHash(encoder.encode(request.newPassword()));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+        logoutAll(userId);
+    }
+
+    public void forgotPassword(com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
+        // Implementation for forgot password
+    }
+
+    @Transactional
+    public void resetPassword(com.example.chat_app_backend.auth.dto.ResetPasswordRequest request) {
+        // Implementation for reset password
+    }
+
+    @Transactional
+    public void verifyEmail(com.example.chat_app_backend.auth.dto.VerifyEmailRequest request) {
+        // Implementation for verifying email
+    }
+
+    public void resendVerification(com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
+        // Implementation for resending email verification
     }
 }
