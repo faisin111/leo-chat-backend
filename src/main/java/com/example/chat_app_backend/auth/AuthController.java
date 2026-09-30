@@ -18,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import com.example.chat_app_backend.payload.response.MessageResponse;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -62,14 +63,14 @@ public class AuthController {
     @SecurityRequirements()
     @Operation(summary = "Register User")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "User successfully registered"),
+        @ApiResponse(responseCode = "201", description = "User successfully registered", content = @Content(schema = @Schema(implementation = MessageResponse.class))),
         @ApiResponse(responseCode = "409", description = "Username or Email already taken", content = @Content(schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "400", description = "Validation error", content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/register")
-    public ResponseEntity<Void> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
+    public ResponseEntity<MessageResponse> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
         authService.registerUser(signUpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse("User successfully registered"));
     }
 
     @SecurityRequirements()
@@ -99,36 +100,36 @@ public class AuthController {
     
     @Operation(summary = "Logout User", description = "Clear HttpOnly cookies.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Successfully logged out"),
+        @ApiResponse(responseCode = "200", description = "Successfully logged out", content = @Content(schema = @Schema(implementation = MessageResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token", content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/logout")
-    public ResponseEntity<Void> logoutUser(HttpServletRequest request) {
+    public ResponseEntity<MessageResponse> logoutUser(HttpServletRequest request) {
         String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
         if (refreshToken != null) {
             authService.logout(refreshToken);
         }
         ResponseCookie jwtCookie = jwtUtils.getCleanJwtCookie();
         ResponseCookie jwtRefreshCookie = jwtUtils.getCleanJwtRefreshCookie();
-        return ResponseEntity.noContent()
+        return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
-                .build();
+                .body(new MessageResponse("Successfully logged out"));
     }
 
     @Operation(summary = "Logout All Sessions", description = "Revoke all sessions and clear HttpOnly cookies.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Successfully logged out of all sessions"),
+        @ApiResponse(responseCode = "200", description = "Successfully logged out of all sessions", content = @Content(schema = @Schema(implementation = MessageResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token", content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/logout-all")
-    public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+    public ResponseEntity<MessageResponse> logoutAll(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         authService.logoutAll(userDetails.getId());
         ResponseCookie jwtCookie = jwtUtils.getCleanJwtCookie();
         ResponseCookie jwtRefreshCookie = jwtUtils.getCleanJwtRefreshCookie();
-        return ResponseEntity.noContent()
+        return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
-                .build();
+                .body(new MessageResponse("Successfully logged out of all sessions"));
     }
 }
