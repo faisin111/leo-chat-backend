@@ -40,4 +40,97 @@ public class ConversationController {
             @Valid @RequestBody CreateDirectChatRequest request) {
         return ResponseEntity.ok(conversationService.getOrCreateDirectChat(user.getId(), request.targetUserId()));
     }
+
+    @Operation(summary = "Get conversation details")
+    @GetMapping("/{id}")
+    public ResponseEntity<ConversationResponse> getConversation(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+        return ResponseEntity.ok(conversationService.getConversation(user.getId(), id));
+    }
+
+    @Operation(summary = "Get unread count")
+    @GetMapping("/unread-count")
+    public ResponseEntity<com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse> getUnreadCount(@AuthenticationPrincipal UserDetailsImpl user) {
+        return ResponseEntity.ok(conversationService.getUnreadCount(user.getId()));
+    }
+
+    @Operation(summary = "Create group chat")
+    @PostMapping("/group")
+    public ResponseEntity<ConversationResponse> createGroupChat(@AuthenticationPrincipal UserDetailsImpl user, @Valid @RequestBody com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest request) {
+        return ResponseEntity.status(201).body(conversationService.createGroupChat(user.getId(), request));
+    }
+
+    @Operation(summary = "Update group chat")
+    @PatchMapping("/{id}")
+    public ResponseEntity<ConversationResponse> updateGroupChat(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id, @Valid @RequestBody com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest request) {
+        return ResponseEntity.ok(conversationService.updateGroupChat(user.getId(), id, request));
+    }
+
+    @Operation(summary = "Get conversation members")
+    @GetMapping("/{id}/members")
+    public ResponseEntity<List<com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse>> getMembers(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+        return ResponseEntity.ok(conversationService.getMembers(user.getId(), id));
+    }
+
+    @Operation(summary = "Add members to group")
+    @PostMapping("/{id}/members")
+    public ResponseEntity<Void> addMembers(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id, @Valid @RequestBody com.example.chat_app_backend.chat.conversation.dto.AddMembersRequest request) {
+        conversationService.addMembers(user.getId(), id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Remove member or leave")
+    @DeleteMapping("/{id}/members/{userId}")
+    public ResponseEntity<Void> removeMember(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id, @PathVariable java.util.UUID userId) {
+        conversationService.removeMember(user.getId(), id, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Change member role")
+    @PatchMapping("/{id}/members/{userId}/role")
+    public ResponseEntity<Void> changeRole(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id, @PathVariable java.util.UUID userId, @Valid @RequestBody com.example.chat_app_backend.chat.conversation.dto.ChangeRoleRequest request) {
+        conversationService.changeRole(user.getId(), id, userId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Mute conversation")
+    @PutMapping("/{id}/mute")
+    public ResponseEntity<Void> muteConversation(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id, @Valid @RequestBody com.example.chat_app_backend.chat.conversation.dto.MuteRequest request) {
+        conversationService.muteConversation(user.getId(), id, request.mutedUntil());
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Unmute conversation")
+    @DeleteMapping("/{id}/mute")
+    public ResponseEntity<Void> unmuteConversation(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+        conversationService.muteConversation(user.getId(), id, null);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Pin conversation")
+    @PutMapping("/{id}/pin")
+    public ResponseEntity<Void> pinConversation(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+        conversationService.pinConversation(user.getId(), id, true);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Unpin conversation")
+    @DeleteMapping("/{id}/pin")
+    public ResponseEntity<Void> unpinConversation(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+        conversationService.pinConversation(user.getId(), id, false);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Archive conversation")
+    @PutMapping("/{id}/archive")
+    public ResponseEntity<Void> archiveConversation(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+        conversationService.archiveConversation(user.getId(), id, true);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Unarchive conversation")
+    @DeleteMapping("/{id}/archive")
+    public ResponseEntity<Void> unarchiveConversation(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+        conversationService.archiveConversation(user.getId(), id, false);
+        return ResponseEntity.ok().build();
+    }
 }
