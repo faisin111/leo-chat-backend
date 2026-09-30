@@ -108,6 +108,7 @@ For small, reversible decisions, choose the option that best follows the documen
 ## 6. Coding Conventions
 
 - **Naming:** `UserService`, `UserController`, `UserRepository`, `CreateGroupRequest` / `GroupResponse` (records), `UserNotFoundException`. Endpoints are plural nouns. Tables are `snake_case`. Java fields are `camelCase`.
+- **Constants:** All strings must be organized into constants (`public static final String`) before use. Avoid magic strings scattered in code.
 - **Services:** `@Service`, `@Transactional` on write methods, `@Transactional(readOnly = true)` on reads.
 - **Controllers:** thin. Validate with `@Valid`, delegate, return DTOs. Annotate with OpenAPI (`@Operation`, `@ApiResponse`).
 - **Config:** typed `@ConfigurationProperties` classes, not scattered `@Value`.
