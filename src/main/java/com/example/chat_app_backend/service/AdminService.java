@@ -26,21 +26,14 @@ public class AdminService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    public ResponseEntity<?> getAllUsers() {
-        List<UserProfileResponse> users = userRepository.findAll().stream()
-                .map(user -> new UserProfileResponse(
-                        user.getId(), user.getUsername(), user.getEmail(), user.getRole(),
-                        user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
-                        user.getProfile() != null ? user.getProfile().getPhoneNumber() : null,
-                        user.getProfile() != null ? user.getProfile().getBio() : null,
-                        user.getProfile() != null ? user.getProfile().getAge() : null,
-                        user.getProfile() != null ? user.getProfile().getRegion() : null
-                ))
-                .collect(Collectors.toList());
-                
-        return ResponseEntity.ok(users);
+    
+    public ResponseEntity<?> getStatsOverview() {
+        return ResponseEntity.ok(java.util.Map.of("message", "Stats not implemented"));
     }
 
+    public ResponseEntity<?> getUsers(String q, String status, int cursor, int limit) {
+        return ResponseEntity.ok(java.util.Map.of("message", "Filter users not implemented"));
+    }
 
     public ResponseEntity<?> getUserById(UUID id) {
         Optional<User> userOpt = userRepository.findById(id);
@@ -48,84 +41,99 @@ public class AdminService {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
         }
         User user = userOpt.get();
-        return ResponseEntity.ok(new UserProfileResponse(
-                user.getId(), user.getUsername(), user.getEmail(), user.getRole(),
-                user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
-                user.getProfile() != null ? user.getProfile().getPhoneNumber() : null,
-                user.getProfile() != null ? user.getProfile().getBio() : null,
-                user.getProfile() != null ? user.getProfile().getAge() : null,
-                user.getProfile() != null ? user.getProfile().getRegion() : null
+                return ResponseEntity.ok(java.util.Map.of(
+                "id", user.getId(),
+                "username", user.getUsername(),
+                "email", user.getEmail(),
+                "role", user.getRole(),
+                "displayName", user.getDisplayName(),
+                "status", user.getStatus()
         ));
     }
 
     @Transactional
-    public ResponseEntity<?> createUser(AdminCreateUserRequest request) {
-        if (userRepository.existsByUsername(request.username())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Username is already taken!"));
-        }
-
-        if (userRepository.existsByEmail(request.email())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Email is already in use!"));
-        }
-
-        User user = new User(
-                request.username(), 
-                request.email(),
-                passwordEncoder.encode(request.password()),
-                request.role() != null ? request.role() : "ROLE_USER",
-                request.username() // use username as default display name
-        );
-
-        userRepository.save(user);
-        return ResponseEntity.ok(new MessageResponse("User created successfully by Admin."));
-    }
-
-    @Transactional
-    public ResponseEntity<?> updateUser(UUID id, AdminUpdateUserRequest request) {
+    public ResponseEntity<?> updateUserStatus(UUID id, com.example.chat_app_backend.payload.request.UpdateUserStatusRequest request) {
         Optional<User> userOpt = userRepository.findById(id);
         if (userOpt.isEmpty()) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
         }
-
         User user = userOpt.get();
-
-        if (request.username() != null && !request.username().equals(user.getUsername())) {
-            if (userRepository.existsByUsername(request.username())) {
-                return ResponseEntity.badRequest().body(new MessageResponse("Error: Username is already taken."));
-            }
-            user.setUsername(request.username());
+        if ("ROLE_ADMIN".equals(user.getRole())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Cannot target admin."));
         }
-
-        if (request.email() != null && !request.email().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(request.email())) {
-                return ResponseEntity.badRequest().body(new MessageResponse("Error: Email is already in use."));
-            }
-            user.setEmail(request.email());
-        }
-
-        com.example.chat_app_backend.model.Profile profile = user.getProfile();
-        if (profile == null) {
-            profile = new com.example.chat_app_backend.model.Profile(user);
-            user.setProfile(profile);
-        }
-
-        if (request.profilePictureUrl() != null) profile.setProfilePictureUrl(request.profilePictureUrl());
-        if (request.phoneNumber() != null) profile.setPhoneNumber(request.phoneNumber());
-        if (request.bio() != null) profile.setBio(request.bio());
-        if (request.age() != null) profile.setAge(request.age());
-        if (request.region() != null) profile.setRegion(request.region());
-
+        user.setStatus(request.status());
+        user.setStatusReason(request.reason());
+        user.setStatusChangedAt(java.time.Instant.now());
         userRepository.save(user);
-        return ResponseEntity.ok(new MessageResponse("User updated successfully by Admin."));
+        return ResponseEntity.ok(new MessageResponse("User status updated successfully."));
+    }
+
+    @Transactional
+    public ResponseEntity<?> forceLogout(UUID id) {
+        return ResponseEntity.ok(new MessageResponse("Force logout not implemented."));
     }
 
     @Transactional
     public ResponseEntity<?> deleteUser(UUID id) {
-        if (!userRepository.existsById(id)) {
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
         }
+        User user = userOpt.get();
+        if ("ROLE_ADMIN".equals(user.getRole())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Cannot target admin."));
+        }
         
-        userRepository.deleteById(id);
-        return ResponseEntity.ok(new MessageResponse("User deleted successfully by Admin."));
+        user.setStatus("DELETED");
+        user.setUsername("deleted_" + UUID.randomUUID().toString().substring(0, 8));
+        user.setEmail("deleted_" + UUID.randomUUID().toString().substring(0, 8) + "@deleted.com");
+        if (user.getProfile() != null) {
+            user.getProfile().setBio(null);
+            user.getProfile().setPhoneNumber(null);
+            user.getProfile().setProfilePictureUrl(null);
+            user.getProfile().setAge(null);
+            user.getProfile().setRegion(null);
+        }
+        userRepository.save(user);
+        
+        return ResponseEntity.ok(new MessageResponse("User anonymized and softly deleted successfully."));
+    }
+
+    public ResponseEntity<?> getConversations(String q, String status, int cursor) {
+        return ResponseEntity.ok(java.util.Map.of("message", "List conversations not implemented"));
+    }
+
+    @Transactional
+    public ResponseEntity<?> updateConversationStatus(UUID id, com.example.chat_app_backend.payload.request.UpdateConversationStatusRequest request) {
+        return ResponseEntity.ok(new MessageResponse("Update conversation status not implemented."));
+    }
+
+    public ResponseEntity<?> getReports(String status, int cursor) {
+        return ResponseEntity.ok(java.util.Map.of("message", "List reports not implemented"));
+    }
+
+    public ResponseEntity<?> getReportDetail(UUID id) {
+        return ResponseEntity.ok(java.util.Map.of("message", "Report detail not implemented"));
+    }
+
+    @Transactional
+    public ResponseEntity<?> resolveReport(UUID id, com.example.chat_app_backend.payload.request.ResolveReportRequest request) {
+        return ResponseEntity.ok(new MessageResponse("Resolve report not implemented."));
+    }
+
+    @Transactional
+    public ResponseEntity<?> deleteMessage(UUID id, String reason) {
+        return ResponseEntity.ok(new MessageResponse("Delete message not implemented."));
+    }
+
+    public ResponseEntity<?> getAuditLogs(UUID actor, String action, String from, String to, int cursor) {
+        return ResponseEntity.ok(java.util.Map.of("message", "Audit logs not implemented"));
+    }
+
+    @Transactional
+    public ResponseEntity<?> transferOwnership(com.example.chat_app_backend.payload.request.TransferOwnershipRequest request) {
+        // Find current user doing the transfer
+        // Note: For simplicity we assume it's valid if they reached here (due to hasRole(ADMIN)).
+        return ResponseEntity.ok(new MessageResponse("Transfer ownership not implemented."));
     }
 }
