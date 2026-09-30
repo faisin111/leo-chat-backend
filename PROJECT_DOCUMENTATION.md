@@ -147,9 +147,9 @@ com.example.chat
 
 ```
 Register ─► POST /api/v1/auth/register
-Login    ─► POST /api/v1/auth/login       → { accessToken (15 min), refreshToken (7-30 days) }
-Call API ─► Authorization: Bearer <accessToken>
-Refresh  ─► POST /api/v1/auth/refresh     → new access + NEW refresh (old one invalidated = rotation)
+Login    ─► POST /api/v1/auth/login       → Set-Cookie: leo_chat_jwt, Set-Cookie: leo_chat_jwt_refresh
+Call API ─► Cookie: leo_chat_jwt=<accessToken>
+Refresh  ─► POST /api/v1/auth/refresh     → Set-Cookie: new tokens (old one invalidated)
 Logout   ─► POST /api/v1/auth/logout      → revoke refresh token (this device)
 Logout all ► POST /api/v1/auth/logout-all → revoke all refresh tokens of the user
 ```
@@ -170,7 +170,7 @@ Logout all ► POST /api/v1/auth/logout-all → revoke all refresh tokens of the
 - Rate-limit `login`, `register`, and `refresh` (for example 5 attempts per minute per IP and username). Temporary lockout after repeated failures.
 - Generic login error: "Invalid credentials" (do not reveal whether the username exists).
 - CORS: explicit allowed origins, never `*` in prod.
-- CSRF disabled only because auth is Bearer-token based (no cookies). If refresh tokens move to cookies, use `HttpOnly; Secure; SameSite`.
+- CSRF must be carefully considered because auth uses HttpOnly cookies (`leo_chat_jwt` and `leo_chat_jwt_refresh` with SameSite=Lax).
 
 ### 5.4 Authorization and Roles
 
@@ -486,7 +486,7 @@ Base path: `/api/v1`. JSON only (except uploads to object storage). Auth header:
 |---|---|---|---|---|
 | POST | `/auth/register` | Public | B | Create a `USER` account (role can never be chosen) |
 | POST | `/auth/login` | Public | B | Returns access + refresh tokens |
-| POST | `/auth/refresh` | Public | B | Rotate tokens (refresh token in body) |
+| POST | `/auth/refresh` | Public | B | Rotate tokens (refresh token in HttpOnly cookie) |
 | POST | `/auth/logout` | User | B | Revoke current refresh token |
 | POST | `/auth/logout-all` | User | B | Revoke all sessions of the user |
 | POST | `/auth/change-password` | User | M | Requires current password; revokes other sessions; clears `must_change_password` |
@@ -603,8 +603,12 @@ Response `201`:
 ```
 
 **Login** `POST /auth/login` → `200`
+Response Headers:
+`Set-Cookie: leo_chat_jwt=eyJhbGciOi...; Path=/api; HttpOnly; SameSite=Lax`
+`Set-Cookie: leo_chat_jwt_refresh=0ff9a1bd...; Path=/api/v1/auth/refresh; HttpOnly; SameSite=Lax`
+Response Body:
 ```json
-{ "accessToken": "eyJhbGciOi...", "refreshToken": "r_9d2f...", "tokenType": "Bearer", "expiresIn": 900 }
+{ "id": "uuid", "username": "alice", "email": "alice@example.com" }
 ```
 
 **Send message** `POST /conversations/{id}/messages` → `201`

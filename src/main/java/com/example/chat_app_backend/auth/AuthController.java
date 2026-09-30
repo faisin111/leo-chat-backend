@@ -3,8 +3,8 @@ package com.example.chat_app_backend.auth;
 import com.example.chat_app_backend.advice.ApiError;
 import com.example.chat_app_backend.auth.dto.LoginRequest;
 import com.example.chat_app_backend.auth.dto.RegisterRequest;
-import com.example.chat_app_backend.auth.dto.TokenRefreshRequest;
 import com.example.chat_app_backend.auth.dto.TokenResponse;
+import com.example.chat_app_backend.security.jwt.JwtUtils;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -14,7 +14,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -22,44 +24,47 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Authentication", description = "Endpoints for registering, logging in, and managing JWT tokens")
+@Tag(name = "Authentication", description = "Endpoints for registering, logging in, and managing JWT cookies")
 public class AuthController {
-
-    private static final String HEADER_USER_AGENT = "User-Agent";
     
+    private static final String HEADER_USER_AGENT = "User-Agent";
     private final AuthService authService;
+    private final JwtUtils jwtUtils;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, JwtUtils jwtUtils) {
         this.authService = authService;
+        this.jwtUtils = jwtUtils;
     }
 
     @SecurityRequirements()
-    @Operation(summary = "Login User", description = "Authenticate with username and password to get a JWT access token and refresh token.")
+    @Operation(summary = "Login User", description = "Authenticate to get HttpOnly cookies (leo_chat_jwt and leo_chat_jwt_refresh).")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully authenticated", 
-                     content = @Content(schema = @Schema(implementation = TokenResponse.class))),
-        @ApiResponse(responseCode = "401", description = "Invalid credentials (UNAUTHORIZED)", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-        @ApiResponse(responseCode = "400", description = "Validation error on input", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class)))
+        @ApiResponse(responseCode = "200", description = "Successfully authenticated"),
+        @ApiResponse(responseCode = "401", description = "Invalid credentials", content = @Content(schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "400", description = "Validation error", content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> authenticateUser(
+    public ResponseEntity<?> authenticateUser(
             @Valid @RequestBody LoginRequest loginRequest,
             HttpServletRequest request) {
         String deviceInfo = request.getHeader(HEADER_USER_AGENT);
         TokenResponse tokenResponse = authService.login(loginRequest, deviceInfo);
-        return ResponseEntity.ok(tokenResponse);
+        
+        ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(tokenResponse.accessToken());
+        ResponseCookie jwtRefreshCookie = jwtUtils.generateRefreshJwtCookie(tokenResponse.refreshToken());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                .body(tokenResponse);
     }
 
     @SecurityRequirements()
-    @Operation(summary = "Register User", description = "Register a new user account.")
+    @Operation(summary = "Register User")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "User successfully registered"),
-        @ApiResponse(responseCode = "409", description = "Username or Email already taken (CONFLICT)", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-        @ApiResponse(responseCode = "400", description = "Validation error on input (e.g., weak password)", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class)))
+        @ApiResponse(responseCode = "409", description = "Username or Email already taken", content = @Content(schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "400", description = "Validation error", content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/register")
     public ResponseEntity<Void> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
@@ -68,45 +73,54 @@ public class AuthController {
     }
 
     @SecurityRequirements()
-    @Operation(summary = "Refresh Token", description = "Exchange a valid refresh token for a new access token and a new refresh token (token rotation).")
+    @Operation(summary = "Refresh Token", description = "Rotate HttpOnly cookies using the refresh cookie.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Tokens successfully rotated", 
-                     content = @Content(schema = @Schema(implementation = TokenResponse.class))),
-        @ApiResponse(responseCode = "401", description = "Invalid, expired, or reused refresh token (UNAUTHORIZED)", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-        @ApiResponse(responseCode = "400", description = "Validation error (missing token)", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class)))
+        @ApiResponse(responseCode = "200", description = "Tokens successfully rotated"),
+        @ApiResponse(responseCode = "401", description = "Invalid/expired refresh cookie", content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/refresh")
-    public ResponseEntity<TokenResponse> refreshtoken(
-            @Valid @RequestBody TokenRefreshRequest requestBody,
-            HttpServletRequest request) {
+    public ResponseEntity<?> refreshtoken(HttpServletRequest request) {
+        String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(java.time.Instant.now(), 401, "UNAUTHORIZED", "Refresh Token is empty!", "/api/v1/auth/refresh", java.util.UUID.randomUUID().toString(), java.util.List.of()));
+        }
+
         String deviceInfo = request.getHeader(HEADER_USER_AGENT);
-        TokenResponse tokenResponse = authService.refresh(requestBody.refreshToken(), deviceInfo);
-        return ResponseEntity.ok(tokenResponse);
+        TokenResponse tokenResponse = authService.refresh(refreshToken, deviceInfo);
+        
+        ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(tokenResponse.accessToken());
+        ResponseCookie jwtRefreshCookie = jwtUtils.generateRefreshJwtCookie(tokenResponse.refreshToken());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                .body(tokenResponse);
     }
     
-    @Operation(summary = "Logout User", description = "Revoke the specific refresh token so it cannot be used again.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Successfully logged out"),
-        @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class)))
-    })
+    @Operation(summary = "Logout User", description = "Clear HttpOnly cookies.")
     @PostMapping("/logout")
-    public ResponseEntity<Void> logoutUser(@Valid @RequestBody TokenRefreshRequest requestBody) {
-        authService.logout(requestBody.refreshToken());
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> logoutUser(HttpServletRequest request) {
+        String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
+        if (refreshToken != null) {
+            authService.logout(refreshToken);
+        }
+        ResponseCookie jwtCookie = jwtUtils.getCleanJwtCookie();
+        ResponseCookie jwtRefreshCookie = jwtUtils.getCleanJwtRefreshCookie();
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                .build();
     }
 
-    @Operation(summary = "Logout All Sessions", description = "Revoke all refresh tokens for the currently authenticated user across all devices.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Successfully logged out of all sessions"),
-        @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token", 
-                     content = @Content(schema = @Schema(implementation = ApiError.class)))
-    })
+    @Operation(summary = "Logout All Sessions", description = "Revoke all sessions and clear HttpOnly cookies.")
     @PostMapping("/logout-all")
     public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         authService.logoutAll(userDetails.getId());
-        return ResponseEntity.noContent().build();
+        ResponseCookie jwtCookie = jwtUtils.getCleanJwtCookie();
+        ResponseCookie jwtRefreshCookie = jwtUtils.getCleanJwtRefreshCookie();
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                .build();
     }
 }
