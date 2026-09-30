@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.example.chat_app_backend.config.openapi.StandardErrors;
 
 import java.util.UUID;
@@ -44,5 +45,31 @@ public class UserController {
     @DeleteMapping("/me")
     public ResponseEntity<?> deactivateAccount() {
         return userService.deactivateCurrentUser();
+    }
+
+    @Operation(summary = "Search users")
+    @GetMapping("/search")
+    public ResponseEntity<?> searchUsers(@RequestParam String q, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return userService.searchUsers(q, page, size);
+    }
+
+    @Operation(summary = "Get user presence")
+    @GetMapping("/presence")
+    public ResponseEntity<?> getPresence(@RequestParam java.util.List<UUID> ids) {
+        return userService.getPresence(ids);
+    }
+
+    @Operation(summary = "Get active sessions")
+    @GetMapping("/me/sessions")
+    public ResponseEntity<?> getSessions(@AuthenticationPrincipal com.example.chat_app_backend.security.services.UserDetailsImpl userDetails) {
+        // Simple scaffold for now
+        return ResponseEntity.ok(java.util.List.of());
+    }
+
+    @Operation(summary = "Logout specific session")
+    @DeleteMapping("/me/sessions/{sessionId}")
+    public ResponseEntity<?> logoutSession(@AuthenticationPrincipal com.example.chat_app_backend.security.services.UserDetailsImpl userDetails, @PathVariable UUID sessionId) {
+        // Simple scaffold for now
+        return ResponseEntity.ok().build();
     }
 }

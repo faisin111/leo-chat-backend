@@ -93,4 +93,36 @@ public class UserService {
         // Return 204 or a message
         return ResponseEntity.ok(new MessageResponse("Account deactivated successfully"));
     }
+
+    public ResponseEntity<?> searchUsers(String query, int page, int size) {
+        if (query == null || query.trim().length() < 2) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Search query must be at least 2 characters"));
+        }
+        
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<User> users = userRepository.findByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(query.trim(), query.trim(), pageable);
+        
+        List<com.example.chat_app_backend.payload.response.UserSearchResponse> responses = users.stream()
+                .map(user -> new com.example.chat_app_backend.payload.response.UserSearchResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getDisplayName(),
+                        user.getLastSeenAt(),
+                        user.getStatus()
+                )).toList();
+                
+        return ResponseEntity.ok(responses);
+    }
+
+    public ResponseEntity<?> getPresence(List<UUID> ids) {
+        List<User> users = userRepository.findAllById(ids);
+        List<java.util.Map<String, Object>> presenceList = users.stream().map(u -> {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("userId", u.getId());
+            map.put("lastSeenAt", u.getLastSeenAt());
+            map.put("status", u.getStatus());
+            return map;
+        }).toList();
+        return ResponseEntity.ok(presenceList);
+    }
 }
