@@ -5,5 +5,6 @@ public record UpdateProfileRequest(
     String phoneNumber,
     String bio,
     Integer age,
-    String region
+    String region,
+    String displayName // Adding displayName for V2
 ) {}

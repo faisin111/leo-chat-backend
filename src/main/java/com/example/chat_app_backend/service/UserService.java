@@ -10,6 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.example.chat_app_backend.security.services.UserDetailsImpl;
+import com.example.chat_app_backend.payload.response.MessageResponse;
 
 import java.util.List;
 import java.util.Optional;
@@ -67,8 +71,26 @@ public class UserService {
         if (request.bio() != null) profile.setBio(request.bio());
         if (request.age() != null) profile.setAge(request.age());
         if (request.region() != null) profile.setRegion(request.region());
+        if (request.displayName() != null) user.setDisplayName(request.displayName());
         
         userRepository.save(user);
         return ResponseEntity.ok(new MessageResponse("Profile updated successfully"));
+    }
+
+    @Transactional
+    public ResponseEntity<?> deactivateCurrentUser() {
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userRepository.findById(userDetails.getId()).orElse(null);
+        if (user == null) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
+        }
+        if ("ADMIN".equals(user.getRole())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("BUSINESS_RULE: Transfer ownership first"));
+        }
+        user.setStatus("DISABLED");
+        userRepository.save(user);
+        
+        // Return 204 or a message
+        return ResponseEntity.ok(new MessageResponse("Account deactivated successfully"));
     }
 }

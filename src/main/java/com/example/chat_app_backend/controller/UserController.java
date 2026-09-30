@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 @Tag(name = "User Operations", description = "Endpoints for retrieving user profiles and directories")
 @StandardErrors
 public class UserController {
@@ -36,5 +36,11 @@ public class UserController {
     @PatchMapping("/me/profile")
     public ResponseEntity<?> updateProfile(@RequestBody com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
         return userService.updateProfile(request);
+    }
+
+    @Operation(summary = "Deactivate Account", description = "Deactivate own account (rejected for the admin)")
+    @DeleteMapping("/me")
+    public ResponseEntity<?> deactivateAccount() {
+        return userService.deactivateCurrentUser();
     }
 }

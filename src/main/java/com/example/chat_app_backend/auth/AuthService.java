@@ -4,6 +4,8 @@ import com.example.chat_app_backend.auth.dto.LoginRequest;
 import com.example.chat_app_backend.auth.dto.RegisterRequest;
 import com.example.chat_app_backend.auth.dto.TokenResponse;
 import com.example.chat_app_backend.auth.model.RefreshToken;
+import com.example.chat_app_backend.auth.model.VerificationToken;
+import com.example.chat_app_backend.auth.repo.VerificationTokenRepository;
 import com.example.chat_app_backend.auth.repo.RefreshTokenRepository;
 import com.example.chat_app_backend.exception.ConflictException;
 import com.example.chat_app_backend.exception.UnauthorizedException;
@@ -45,17 +47,19 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final VerificationTokenRepository verificationTokenRepository;
 
     public AuthService(UserRepository userRepository, 
                        PasswordEncoder encoder,
                        AuthenticationManager authenticationManager,
                        JwtUtils jwtUtils,
-                       RefreshTokenRepository refreshTokenRepository) {
+                       RefreshTokenRepository refreshTokenRepository, VerificationTokenRepository verificationTokenRepository) {
         this.userRepository = userRepository;
         this.encoder = encoder;
         this.authenticationManager = authenticationManager;
         this.jwtUtils = jwtUtils;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.verificationTokenRepository = verificationTokenRepository;
     }
 
     @Transactional
@@ -187,21 +191,65 @@ public class AuthService {
         logoutAll(userId);
     }
 
+    
+    @Transactional
     public void forgotPassword(com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-        // Implementation for forgot password
+        userRepository.findByEmail(request.email()).ifPresent(user -> {
+            verificationTokenRepository.deleteByUserIdAndType(user.getId(), "PASSWORD_RESET");
+            String token = UUID.randomUUID().toString();
+            VerificationToken vToken = new VerificationToken(token, user.getId(), "PASSWORD_RESET", Instant.now().plus(java.time.Duration.ofHours(1)));
+            verificationTokenRepository.save(vToken);
+            // TODO: Send email
+            System.out.println("PASSWORD RESET TOKEN FOR " + user.getEmail() + ": " + token);
+        });
     }
 
     @Transactional
     public void resetPassword(com.example.chat_app_backend.auth.dto.ResetPasswordRequest request) {
-        // Implementation for reset password
+        VerificationToken vToken = verificationTokenRepository.findByTokenAndType(request.token(), "PASSWORD_RESET")
+                .orElseThrow(() -> new RuntimeException("Invalid or expired reset token"));
+                
+        if (vToken.getExpiresAt().isBefore(Instant.now())) {
+            verificationTokenRepository.delete(vToken);
+            throw new RuntimeException("Token expired");
+        }
+        
+        User user = userRepository.findById(vToken.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        user.setPasswordHash(encoder.encode(request.newPassword()));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+        
+        verificationTokenRepository.delete(vToken);
+        logoutAll(user.getId());
     }
 
     @Transactional
     public void verifyEmail(com.example.chat_app_backend.auth.dto.VerifyEmailRequest request) {
-        // Implementation for verifying email
+        VerificationToken vToken = verificationTokenRepository.findByTokenAndType(request.token(), "EMAIL_VERIFICATION")
+                .orElseThrow(() -> new RuntimeException("Invalid or expired verification token"));
+                
+        if (vToken.getExpiresAt().isBefore(Instant.now())) {
+            verificationTokenRepository.delete(vToken);
+            throw new RuntimeException("Token expired");
+        }
+        
+        // Mark user as verified (if we had a verified field, but for now just delete the token)
+        System.out.println("User " + vToken.getUserId() + " successfully verified email.");
+        verificationTokenRepository.delete(vToken);
     }
 
+    @Transactional
     public void resendVerification(com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-        // Implementation for resending email verification
+        userRepository.findByEmail(request.email()).ifPresent(user -> {
+            verificationTokenRepository.deleteByUserIdAndType(user.getId(), "EMAIL_VERIFICATION");
+            String token = UUID.randomUUID().toString();
+            VerificationToken vToken = new VerificationToken(token, user.getId(), "EMAIL_VERIFICATION", Instant.now().plus(java.time.Duration.ofHours(24)));
+            verificationTokenRepository.save(vToken);
+            // TODO: Send email
+            System.out.println("EMAIL VERIFICATION TOKEN FOR " + user.getEmail() + ": " + token);
+        });
     }
 }
+
