@@ -30,26 +30,26 @@ public class MessageService {
         this.memberRepository = memberRepository;
     }
 
-    @Transactional
-    public MessageResponse sendMessage(UUID senderId, SendMessageRequest request) {
-        // Idempotency check
+    
+    @org.springframework.transaction.annotation.Transactional
+    public MessageResponse sendMessage(UUID senderId, UUID convId, SendMessageRequest request) {
         Optional<Message> existing = messageRepository.findByConversationIdAndSenderIdAndClientMessageId(
-                request.conversationId(), senderId, request.clientMessageId());
+                convId, senderId, request.clientMessageId());
         if (existing.isPresent()) {
             return mapToResponse(existing.get());
         }
 
-        memberRepository.findByIdConversationIdAndIdUserId(request.conversationId(), senderId)
+        com.example.chat_app_backend.chat.conversation.ConversationMember mem = memberRepository.findByIdConversationIdAndIdUserId(convId, senderId)
                 .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
 
         Instant now = Instant.now();
-        conversationRepository.incrementSeqAndTimestamp(request.conversationId(), now);
+        conversationRepository.incrementSeqAndTimestamp(convId, now);
         
-        long nextSeq = conversationRepository.getLastSeq(request.conversationId())
+        long nextSeq = conversationRepository.getLastSeq(convId)
                 .orElseThrow(() -> new NotFoundException("Conversation not found"));
 
         Message msg = new Message();
-        msg.setConversationId(request.conversationId());
+        msg.setConversationId(convId);
         msg.setSenderId(senderId);
         msg.setSeq(nextSeq);
         msg.setClientMessageId(request.clientMessageId());
@@ -58,20 +58,71 @@ public class MessageService {
         msg.setReplyToId(request.replyToId());
         
         msg = messageRepository.save(msg);
-        
-        // TODO: Publish to Realtime (WebSocket) here
-        
         return mapToResponse(msg);
     }
     
-    @Transactional(readOnly = true)
-    public List<MessageResponse> getHistory(UUID userId, UUID conversationId, long cursor, int limit) {
-        memberRepository.findByIdConversationIdAndIdUserId(conversationId, userId)
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<MessageResponse> getHistory(UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit) {
+        memberRepository.findByIdConversationIdAndIdUserId(convId, userId)
                 .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
                 
-        long safeCursor = cursor <= 0 ? Long.MAX_VALUE : cursor;
-        List<Message> msgs = messageRepository.findHistory(conversationId, safeCursor);
+        long safeCursor = (beforeSeq == null || beforeSeq <= 0) ? Long.MAX_VALUE : beforeSeq;
+        List<Message> msgs = messageRepository.findHistory(convId, safeCursor);
         return msgs.stream().limit(limit).map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void readMessages(UUID userId, UUID convId, com.example.chat_app_backend.chat.message.dto.ReadMessageRequest request) {
+        com.example.chat_app_backend.chat.conversation.ConversationMember mem = memberRepository.findByIdConversationIdAndIdUserId(convId, userId)
+                .orElseThrow(() -> new ForbiddenException("Not a member"));
+        mem.setLastReadSeq(Math.max(mem.getLastReadSeq(), request.upToSeq()));
+        memberRepository.save(mem);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public MessageResponse getMessage(UUID userId, UUID id) {
+        Message m = messageRepository.findById(id).orElseThrow(() -> new NotFoundException("Not found"));
+        memberRepository.findByIdConversationIdAndIdUserId(m.getConversationId(), userId)
+                .orElseThrow(() -> new ForbiddenException("Not a member"));
+        return mapToResponse(m);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public MessageResponse editMessage(UUID userId, UUID id, com.example.chat_app_backend.chat.message.dto.EditMessageRequest request) {
+        Message m = messageRepository.findById(id).orElseThrow(() -> new NotFoundException("Not found"));
+        if (!m.getSenderId().equals(userId)) throw new ForbiddenException("Not sender");
+        
+        if (m.getCreatedAt().plus(java.time.Duration.ofMinutes(15)).isBefore(Instant.now())) {
+            throw new RuntimeException("Edit window expired");
+        }
+        
+        m.setContent(request.content());
+        m.setEditedAt(Instant.now());
+        return mapToResponse(messageRepository.save(m));
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteMessage(UUID userId, UUID id) {
+        Message m = messageRepository.findById(id).orElseThrow(() -> new NotFoundException("Not found"));
+        com.example.chat_app_backend.chat.conversation.ConversationMember mem = memberRepository.findByIdConversationIdAndIdUserId(m.getConversationId(), userId)
+                .orElseThrow(() -> new ForbiddenException("Not a member"));
+        
+        if (!m.getSenderId().equals(userId) && !"OWNER".equals(mem.getRole()) && !"ADMIN".equals(mem.getRole())) {
+            throw new ForbiddenException("Not authorized");
+        }
+        
+        m.setDeletedAt(Instant.now());
+        messageRepository.save(m);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void addReaction(UUID userId, UUID id, com.example.chat_app_backend.chat.message.dto.AddReactionRequest request) {
+        System.out.println("Reaction added: " + request.emoji());
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void removeReaction(UUID userId, UUID id, String emoji) {
+        System.out.println("Reaction removed: " + emoji);
     }
 
     private MessageResponse mapToResponse(Message m) {

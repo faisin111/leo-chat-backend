@@ -32,7 +32,7 @@ public class ChatWsController {
         UserDetailsImpl user = (UserDetailsImpl) auth.getPrincipal();
         
         // Save to DB via service
-        MessageResponse response = messageService.sendMessage(user.getId(), request);
+        MessageResponse response = messageService.sendMessage(user.getId(), request.conversationId(), request);
         
         // Broadcast to conversation topic
         messagingTemplate.convertAndSend("/topic/conversations." + request.conversationId(), response);
