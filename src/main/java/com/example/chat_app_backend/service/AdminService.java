@@ -41,6 +41,16 @@ public class AdminService {
         return ResponseEntity.ok(users);
     }
 
+
+    public ResponseEntity<?> getUserById(UUID id) {
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
+        }
+        User user = userOpt.get();
+        return ResponseEntity.ok(new UserProfileResponse(user.getId(), user.getUsername(), user.getEmail(), user.getRole()));
+    }
+
     @Transactional
     public ResponseEntity<?> createUser(AdminCreateUserRequest request) {
         if (userRepository.existsByUsername(request.username())) {

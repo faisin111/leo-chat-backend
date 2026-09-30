@@ -31,7 +31,15 @@ public class AdminController {
         return adminService.getAllUsers();
     }
 
+
+    @Operation(summary = "Get User by ID", description = "Admin retrieves a specific user's details.")
+    @GetMapping("/users/{id}")
+    public ResponseEntity<?> getUserById(@PathVariable UUID id) {
+        return adminService.getUserById(id);
+    }
+
     @Operation(summary = "Create User", description = "Admin explicitly creates a new user, bypassing registration.")
+
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@Valid @RequestBody AdminCreateUserRequest request) {
         return adminService.createUser(request);
