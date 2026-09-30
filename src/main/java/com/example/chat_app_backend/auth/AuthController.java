@@ -21,11 +21,13 @@ import org.springframework.http.ResponseEntity;
 import com.example.chat_app_backend.payload.response.MessageResponse;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "Endpoints for registering, logging in, and managing JWT cookies")
+@StandardErrors
 public class AuthController {
     
     private static final String HEADER_USER_AGENT = "User-Agent";

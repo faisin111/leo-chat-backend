@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
 
 import java.util.List;
 
@@ -17,6 +18,7 @@ import java.util.List;
 @RequestMapping("/api/v1/conversations")
 @Tag(name = "Conversations", description = "Endpoints for managing chat conversations (DMs and Groups)")
 @SecurityRequirement(name = "bearerAuth")
+@StandardErrors
 public class ConversationController {
 
     private final ConversationService conversationService;

@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/messages")
 @Tag(name = "Messages", description = "Endpoints for sending messages and fetching history")
 @SecurityRequirement(name = "bearerAuth")
+@StandardErrors
 public class MessageController {
 
     private final MessageService messageService;

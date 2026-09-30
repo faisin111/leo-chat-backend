@@ -6,7 +6,12 @@ import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import org.springdoc.core.customizers.OperationCustomizer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.prepost.PreAuthorize;
+
+import java.util.Optional;
 
 @Configuration
 @OpenAPIDefinition(
@@ -28,4 +33,18 @@ import org.springframework.context.annotation.Configuration;
         description = "JWT Bearer token authentication. Please enter your access token below."
 )
 public class OpenApiConfig {
+
+    @Bean
+    public OperationCustomizer roleBadge() {
+        return (operation, handlerMethod) -> {
+            PreAuthorize pre = handlerMethod.getMethodAnnotation(PreAuthorize.class);
+            if (pre == null) {
+                pre = handlerMethod.getBeanType().getAnnotation(PreAuthorize.class);
+            }
+            if (pre != null && pre.value().contains("ADMIN")) {
+                operation.setDescription("**🔒 Admin only.** " + Optional.ofNullable(operation.getDescription()).orElse(""));
+            }
+            return operation;
+        };
+    }
 }

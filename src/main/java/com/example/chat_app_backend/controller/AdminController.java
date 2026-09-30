@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
 
 import java.util.UUID;
 
@@ -15,6 +16,7 @@ import java.util.UUID;
 @RequestMapping("/api/admin")
 @PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Admin Operations", description = "Highly privileged endpoints strictly reserved for the single System Admin")
+@StandardErrors
 public class AdminController {
 
     @Autowired
