@@ -32,6 +32,14 @@ import java.util.HexFormat;
 @Service
 public class AuthService {
 
+    private static final String ADMIN_LOWER = "admin";
+    private static final String ROLE_ADMIN_LOWER = "role_admin";
+    private static final String ERR_USER_NOT_FOUND = "User not found";
+    private static final String ERR_INVALID_REFRESH_TOKEN = "INVALID_REFRESH_TOKEN";
+    private static final String ERR_REFRESH_TOKEN_REUSED = "REFRESH_TOKEN_REUSED";
+    private static final String ALGO_SHA_256 = "SHA-256";
+    private static final String ERR_SHA_NOT_AVAILABLE = "SHA-256 algorithm not available";
+
     private final UserRepository userRepository;
     private final PasswordEncoder encoder;
     private final AuthenticationManager authenticationManager;
@@ -65,7 +73,7 @@ public class AuthService {
 
         if (strRole != null) {
             String lowerRole = strRole.toLowerCase();
-            if (lowerRole.equals("admin") || lowerRole.equals("role_admin")) {
+            if (lowerRole.equals(ADMIN_LOWER) || lowerRole.equals(ROLE_ADMIN_LOWER)) {
                 if (userRepository.existsByRole(AppConstants.ROLE_ADMIN)) {
                     throw new ConflictException(AppConstants.ERR_ADMIN_EXISTS);
                 }
@@ -88,7 +96,7 @@ public class AuthService {
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         User user = userRepository.findById(userDetails.getId())
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
+                .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
         return issueTokens(user, UUID.randomUUID(), deviceInfo);
     }
@@ -97,21 +105,21 @@ public class AuthService {
     public TokenResponse refresh(String rawRefreshToken, String deviceInfo) {
         String hash = sha256(rawRefreshToken);
         RefreshToken token = refreshTokenRepository.findByTokenHash(hash)
-                .orElseThrow(() -> new UnauthorizedException("INVALID_REFRESH_TOKEN"));
+                .orElseThrow(() -> new UnauthorizedException(ERR_INVALID_REFRESH_TOKEN));
 
         if (token.getRevokedAt() != null || token.getExpiresAt().isBefore(Instant.now())) {
-            throw new UnauthorizedException("INVALID_REFRESH_TOKEN");
+            throw new UnauthorizedException(ERR_INVALID_REFRESH_TOKEN);
         }
         if (token.getUsedAt() != null) {
             refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now());
-            throw new UnauthorizedException("REFRESH_TOKEN_REUSED");
+            throw new UnauthorizedException(ERR_REFRESH_TOKEN_REUSED);
         }
 
         token.setUsedAt(Instant.now());
         refreshTokenRepository.save(token);
 
         User user = userRepository.findById(token.getUserId())
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
+                .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
         return issueTokens(user, token.getFamilyId(), deviceInfo);
     }
@@ -162,11 +170,11 @@ public class AuthService {
 
     private String sha256(String input) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance(ALGO_SHA_256);
             byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 algorithm not available", e);
+            throw new RuntimeException(ERR_SHA_NOT_AVAILABLE, e);
         }
     }
 }

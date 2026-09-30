@@ -24,6 +24,8 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "Endpoints for registering, logging in, and managing JWT tokens")
 public class AuthController {
+
+    private static final String HEADER_USER_AGENT = "User-Agent";
     
     private final AuthService authService;
 
@@ -45,7 +47,7 @@ public class AuthController {
     public ResponseEntity<TokenResponse> authenticateUser(
             @Valid @RequestBody LoginRequest loginRequest,
             HttpServletRequest request) {
-        String deviceInfo = request.getHeader("User-Agent");
+        String deviceInfo = request.getHeader(HEADER_USER_AGENT);
         TokenResponse tokenResponse = authService.login(loginRequest, deviceInfo);
         return ResponseEntity.ok(tokenResponse);
     }
@@ -79,7 +81,7 @@ public class AuthController {
     public ResponseEntity<TokenResponse> refreshtoken(
             @Valid @RequestBody TokenRefreshRequest requestBody,
             HttpServletRequest request) {
-        String deviceInfo = request.getHeader("User-Agent");
+        String deviceInfo = request.getHeader(HEADER_USER_AGENT);
         TokenResponse tokenResponse = authService.refresh(requestBody.refreshToken(), deviceInfo);
         return ResponseEntity.ok(tokenResponse);
     }
