@@ -17,7 +17,7 @@ public class Profile {
     @JsonIgnore
     private User user;
 
-    @Column(name = "phone_number")
+    @Column(name = "profile_picture_url")
     private String profilePictureUrl;
 
     @Column(name = "phone_number")
