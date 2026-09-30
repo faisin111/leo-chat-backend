@@ -48,7 +48,14 @@ public class AdminService {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
         }
         User user = userOpt.get();
-        return ResponseEntity.ok(new UserProfileResponse(user.getId(), user.getUsername(), user.getEmail(), user.getRole()));
+        return ResponseEntity.ok(new UserProfileResponse(
+                user.getId(), user.getUsername(), user.getEmail(), user.getRole(),
+                user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
+                user.getProfile() != null ? user.getProfile().getPhoneNumber() : null,
+                user.getProfile() != null ? user.getProfile().getBio() : null,
+                user.getProfile() != null ? user.getProfile().getAge() : null,
+                user.getProfile() != null ? user.getProfile().getRegion() : null
+        ));
     }
 
     @Transactional
@@ -95,9 +102,17 @@ public class AdminService {
             user.setEmail(request.email());
         }
 
-        if (request.profilePictureUrl() != null) {
-            user.setProfilePictureUrl(request.profilePictureUrl());
+        com.example.chat_app_backend.model.Profile profile = user.getProfile();
+        if (profile == null) {
+            profile = new com.example.chat_app_backend.model.Profile(user);
+            user.setProfile(profile);
         }
+
+        if (request.profilePictureUrl() != null) profile.setProfilePictureUrl(request.profilePictureUrl());
+        if (request.phoneNumber() != null) profile.setPhoneNumber(request.phoneNumber());
+        if (request.bio() != null) profile.setBio(request.bio());
+        if (request.age() != null) profile.setAge(request.age());
+        if (request.region() != null) profile.setRegion(request.region());
 
         userRepository.save(user);
         return ResponseEntity.ok(new MessageResponse("User updated successfully by Admin."));
