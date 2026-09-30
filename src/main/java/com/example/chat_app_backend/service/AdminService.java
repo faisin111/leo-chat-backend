@@ -72,7 +72,8 @@ public class AdminService {
                 request.username(), 
                 request.email(),
                 passwordEncoder.encode(request.password()),
-                request.role() != null ? request.role() : "ROLE_USER"
+                request.role() != null ? request.role() : "ROLE_USER",
+                request.username() // use username as default display name
         );
 
         userRepository.save(user);
