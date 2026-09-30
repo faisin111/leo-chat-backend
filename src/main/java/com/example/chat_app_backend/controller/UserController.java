@@ -33,7 +33,7 @@ public class UserController {
     }
 
     @Operation(summary = "Update Profile", description = "Allows the current user to update their phone number, bio, age, and region.")
-    @PatchMapping("/me")
+    @PatchMapping("/me/profile")
     public ResponseEntity<?> updateProfile(@RequestBody com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
         return userService.updateProfile(request);
     }
