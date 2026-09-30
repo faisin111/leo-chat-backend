@@ -31,10 +31,4 @@ public class AdminController {
     public ResponseEntity<?> deleteUser(@PathVariable UUID id) {
         return adminService.deleteUser(id);
     }
-
-    @Operation(summary = "Get All Chats", description = "Retrieves all chat rooms (both direct messages and groups) across the entire platform.")
-    @GetMapping("/chats")
-    public ResponseEntity<?> getAllChats() {
-        return adminService.getAllChats();
-    }
 }

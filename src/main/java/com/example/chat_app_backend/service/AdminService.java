@@ -1,9 +1,9 @@
 package com.example.chat_app_backend.service;
 
-import com.example.chat_app_backend.model.Chat;
+
 import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.payload.response.UserProfileResponse;
-import com.example.chat_app_backend.repository.ChatRepository;
+
 import com.example.chat_app_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +19,7 @@ public class AdminService {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private ChatRepository chatRepository;
+
 
     public ResponseEntity<?> getAllUsers() {
         List<UserProfileResponse> users = userRepository.findAll().stream()
@@ -39,8 +38,5 @@ public class AdminService {
         return ResponseEntity.ok(new MessageResponse("User deleted successfully by Admin."));
     }
 
-    public ResponseEntity<?> getAllChats() {
-        List<Chat> chats = chatRepository.findAll();
-        return ResponseEntity.ok(chats);
-    }
+
 }
