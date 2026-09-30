@@ -20,12 +20,12 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;    
     private String role; // e.g., ROLE_USER, ROLE_ADMIN
-    @Column(nullable = false, length = 60)
+    @Column(nullable = false, length = 60, columnDefinition = "varchar(60) default 'User'")
     private String displayName;
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'ACTIVE'")
     private String status = "ACTIVE"; // ACTIVE, DISABLED, BANNED, DELETED
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean mustChangePassword = false;
 
     private Instant lastSeenAt;
