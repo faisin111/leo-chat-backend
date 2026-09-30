@@ -98,6 +98,10 @@ public class AuthController {
     }
     
     @Operation(summary = "Logout User", description = "Clear HttpOnly cookies.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Successfully logged out"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token", content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @PostMapping("/logout")
     public ResponseEntity<Void> logoutUser(HttpServletRequest request) {
         String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
@@ -113,6 +117,10 @@ public class AuthController {
     }
 
     @Operation(summary = "Logout All Sessions", description = "Revoke all sessions and clear HttpOnly cookies.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Successfully logged out of all sessions"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token", content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @PostMapping("/logout-all")
     public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         authService.logoutAll(userDetails.getId());
