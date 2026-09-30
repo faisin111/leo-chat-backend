@@ -18,6 +18,9 @@ public class Profile {
     private User user;
 
     @Column(name = "phone_number")
+    private String profilePictureUrl;
+
+    @Column(name = "phone_number")
     private String phoneNumber;
 
     @Column(columnDefinition = "TEXT")
@@ -38,6 +41,9 @@ public class Profile {
 
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
+
+    public String getProfilePictureUrl() { return profilePictureUrl; }
+    public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
 
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }

@@ -1,6 +1,7 @@
 package com.example.chat_app_backend.payload.request;
 
 public record UpdateProfileRequest(
+    String profilePictureUrl,
     String phoneNumber,
     String bio,
     Integer age,

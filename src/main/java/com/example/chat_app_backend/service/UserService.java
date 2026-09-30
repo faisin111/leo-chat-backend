@@ -32,6 +32,7 @@ public class UserService {
         User user = userOpt.get();
         UserProfileResponse profile = new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(), user.getRole(),
+                user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
                 user.getProfile() != null ? user.getProfile().getPhoneNumber() : null,
                 user.getProfile() != null ? user.getProfile().getBio() : null,
                 user.getProfile() != null ? user.getProfile().getAge() : null,
@@ -61,6 +62,7 @@ public class UserService {
             user.setProfile(profile);
         }
         
+        if (request.profilePictureUrl() != null) profile.setProfilePictureUrl(request.profilePictureUrl());
         if (request.phoneNumber() != null) profile.setPhoneNumber(request.phoneNumber());
         if (request.bio() != null) profile.setBio(request.bio());
         if (request.age() != null) profile.setAge(request.age());
