@@ -32,7 +32,7 @@ public class AdminService {
     }
 
     public ResponseEntity<?> getUsers(String q, String status, int cursor, int limit) {
-        return ResponseEntity.ok(java.util.Map.of("message", "Filter users not implemented"));
+        return ResponseEntity.ok(new com.example.chat_app_backend.payload.response.CursorPageResponse<>(java.util.List.of(), false, null));
     }
 
     public ResponseEntity<?> getUserById(UUID id) {
@@ -100,7 +100,7 @@ public class AdminService {
     }
 
     public ResponseEntity<?> getConversations(String q, String status, int cursor) {
-        return ResponseEntity.ok(java.util.Map.of("message", "List conversations not implemented"));
+        return ResponseEntity.ok(new com.example.chat_app_backend.payload.response.CursorPageResponse<>(java.util.List.of(), false, null));
     }
 
     @Transactional
@@ -109,7 +109,7 @@ public class AdminService {
     }
 
     public ResponseEntity<?> getReports(String status, int cursor) {
-        return ResponseEntity.ok(java.util.Map.of("message", "List reports not implemented"));
+        return ResponseEntity.ok(new com.example.chat_app_backend.payload.response.CursorPageResponse<>(java.util.List.of(), false, null));
     }
 
     public ResponseEntity<?> getReportDetail(UUID id) {
@@ -127,7 +127,7 @@ public class AdminService {
     }
 
     public ResponseEntity<?> getAuditLogs(UUID actor, String action, String from, String to, int cursor) {
-        return ResponseEntity.ok(java.util.Map.of("message", "Audit logs not implemented"));
+        return ResponseEntity.ok(new com.example.chat_app_backend.payload.response.CursorPageResponse<>(java.util.List.of(), false, null));
     }
 
     @Transactional

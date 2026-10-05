@@ -29,8 +29,11 @@ public class ConversationController {
 
     @Operation(summary = "Get user conversations", description = "Returns all conversations sorted by latest activity")
     @GetMapping
-    public ResponseEntity<List<ConversationResponse>> getConversations(@AuthenticationPrincipal UserDetailsImpl user) {
-        return ResponseEntity.ok(conversationService.getUserConversations(user.getId()));
+    public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<ConversationResponse>> getConversations(
+            @AuthenticationPrincipal UserDetailsImpl user,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(conversationService.getUserConversations(user.getId(), cursor, limit));
     }
 
     @Operation(summary = "Start Direct Message", description = "Get or create a 1-to-1 conversation with another user")

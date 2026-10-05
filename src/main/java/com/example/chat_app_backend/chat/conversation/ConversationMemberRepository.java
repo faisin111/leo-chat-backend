@@ -7,5 +7,6 @@ import java.util.Optional;
 
 public interface ConversationMemberRepository extends JpaRepository<ConversationMember, ConversationMemberId> {
     List<ConversationMember> findByIdConversationId(UUID conversationId);
+    List<ConversationMember> findByIdUserId(UUID userId);
     Optional<ConversationMember> findByIdConversationIdAndIdUserId(UUID conversationId, UUID userId);
 }
