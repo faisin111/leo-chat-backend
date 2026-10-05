@@ -31,6 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthService {
 
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.example.chat_app_backend.service.EmailService emailService;
+
   private static final String ADMIN_LOWER = "admin";
   private static final String ROLE_ADMIN_LOWER = "role_admin";
   private static final String ERR_USER_NOT_FOUND = "User not found";
@@ -217,8 +220,7 @@ public class AuthService {
                       "PASSWORD_RESET",
                       Instant.now().plus(java.time.Duration.ofHours(1)));
               verificationTokenRepository.save(vToken);
-              // TODO: Send email
-              System.out.println("PASSWORD RESET TOKEN FOR " + user.getEmail() + ": " + token);
+              emailService.sendPasswordResetEmail(user.getEmail(), token);
             });
   }
 
@@ -259,8 +261,13 @@ public class AuthService {
       throw new RuntimeException("Token expired");
     }
 
-    // Mark user as verified (if we had a verified field, but for now just delete the token)
-    System.out.println("User " + vToken.getUserId() + " successfully verified email.");
+    User user = userRepository.findById(vToken.getUserId())
+        .orElseThrow(() -> new RuntimeException("User not found"));
+        
+    user.setEmailVerified(true);
+    userRepository.save(user);
+
+    System.out.println("User " + user.getEmail() + " successfully verified email.");
     verificationTokenRepository.delete(vToken);
   }
 
@@ -280,8 +287,7 @@ public class AuthService {
                       "EMAIL_VERIFICATION",
                       Instant.now().plus(java.time.Duration.ofHours(24)));
               verificationTokenRepository.save(vToken);
-              // TODO: Send email
-              System.out.println("EMAIL VERIFICATION TOKEN FOR " + user.getEmail() + ": " + token);
+              emailService.sendVerificationEmail(user.getEmail(), token);
             });
   }
 }

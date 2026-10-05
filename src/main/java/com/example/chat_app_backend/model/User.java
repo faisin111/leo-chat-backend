@@ -59,7 +59,13 @@ public class User {
     updatedAt = Instant.now();
   }
 
-  public User() {}
+      @Column(nullable = false)
+    private boolean isEmailVerified = false;
+    
+    public boolean isEmailVerified() { return isEmailVerified; }
+    public void setEmailVerified(boolean emailVerified) { isEmailVerified = emailVerified; }
+
+    public User() {}
 
   public User(String username, String email, String passwordHash, String role, String displayName) {
     this.username = username;
