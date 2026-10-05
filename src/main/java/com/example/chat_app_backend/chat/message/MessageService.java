@@ -62,13 +62,16 @@ public class MessageService {
     }
     
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<MessageResponse> getHistory(UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit) {
+    public com.example.chat_app_backend.payload.response.CursorPageResponse<MessageResponse> getHistory(UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit) {
         memberRepository.findByIdConversationIdAndIdUserId(convId, userId)
                 .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
                 
         long safeCursor = (beforeSeq == null || beforeSeq <= 0) ? Long.MAX_VALUE : beforeSeq;
         List<Message> msgs = messageRepository.findHistory(convId, safeCursor);
-        return msgs.stream().limit(limit).map(this::mapToResponse).collect(Collectors.toList());
+                List<MessageResponse> responses = msgs.stream().limit(limit).map(this::mapToResponse).collect(Collectors.toList());
+        boolean hasMore = msgs.size() > limit;
+        String nextCursor = responses.isEmpty() ? null : String.valueOf(responses.get(responses.size() - 1).seq());
+        return new com.example.chat_app_backend.payload.response.CursorPageResponse<>(responses, hasMore, nextCursor);
     }
 
     @org.springframework.transaction.annotation.Transactional

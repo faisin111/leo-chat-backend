@@ -59,7 +59,7 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
-                .body(tokenResponse);
+                .body(new com.example.chat_app_backend.payload.response.UserInfoResponse(tokenResponse.id(), tokenResponse.username(), tokenResponse.email()));
     }
 
     @SecurityRequirements()
@@ -70,9 +70,8 @@ public class AuthController {
         @ApiResponse(responseCode = "400", description = "Validation error", content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/register")
-    public ResponseEntity<MessageResponse> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
-        authService.registerUser(signUpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse("User successfully registered"));
+    public ResponseEntity<com.example.chat_app_backend.auth.dto.RegisterResponse> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerUser(signUpRequest));
     }
 
     @SecurityRequirements()
@@ -97,7 +96,7 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
-                .body(tokenResponse);
+                .body(new com.example.chat_app_backend.payload.response.UserInfoResponse(tokenResponse.id(), tokenResponse.username(), tokenResponse.email()));
     }
     
     @Operation(summary = "Logout User", description = "Clear HttpOnly cookies.")

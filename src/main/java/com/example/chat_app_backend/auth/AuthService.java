@@ -63,7 +63,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void registerUser(RegisterRequest signUpRequest) {
+    public com.example.chat_app_backend.auth.dto.RegisterResponse registerUser(RegisterRequest signUpRequest) {
         if (userRepository.existsByUsername(signUpRequest.username())) {
             throw new ConflictException(AppConstants.ERR_USERNAME_TAKEN);
         }
@@ -85,9 +85,12 @@ public class AuthService {
             }
         }
 
-        User user = new User(signUpRequest.username(), signUpRequest.email(), encoder.encode(signUpRequest.password()), role, signUpRequest.username());
-
-        userRepository.save(user);
+        User user = new User(signUpRequest.username(), signUpRequest.email(),
+                encoder.encode(signUpRequest.password()), role, signUpRequest.displayName() != null ? signUpRequest.displayName() : signUpRequest.username());
+                
+        user = userRepository.save(user);
+        
+        return new com.example.chat_app_backend.auth.dto.RegisterResponse(user.getId(), user.getUsername(), user.getDisplayName(), user.getRole());
     }
 
     @Transactional
