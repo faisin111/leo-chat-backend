@@ -21,6 +21,7 @@ public class EmailService {
   @Async
   public void sendVerificationEmail(String toEmail, String token) {
     String verificationUrl = publicUrl + "/api/v1/auth/verify-email?token=" + token;
+        System.out.println("\n=== DEV MODE: VERIFICATION TOKEN ===\n" + token + "\n====================================\n");
 
     SimpleMailMessage message = new SimpleMailMessage();
     message.setFrom(fromAddress);
