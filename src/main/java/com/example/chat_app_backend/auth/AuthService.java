@@ -92,6 +92,17 @@ public class AuthService {
 
     user = userRepository.save(user);
 
+    // Generate and send verification email automatically on registration
+    String token = UUID.randomUUID().toString();
+    VerificationToken vToken = new VerificationToken(
+        token,
+        user.getId(),
+        "EMAIL_VERIFICATION",
+        Instant.now().plus(java.time.Duration.ofHours(24))
+    );
+    verificationTokenRepository.save(vToken);
+    emailService.sendVerificationEmail(user.getEmail(), token);
+
     return new com.example.chat_app_backend.auth.dto.RegisterResponse(
         user.getId(), user.getUsername(), user.getDisplayName(), user.getRole());
   }
