@@ -1,0 +1,2 @@
+-- We rely on Flyway baseline. This script will only run on fresh databases.
+-- If you run this on a fresh database, you should generate the schema dump and place it here.
