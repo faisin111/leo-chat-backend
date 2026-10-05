@@ -220,8 +220,8 @@ public class AuthController {
   @PostMapping("/forgot-password")
   public ResponseEntity<MessageResponse> forgotPassword(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-    authService.forgotPassword(request);
-    return ResponseEntity.accepted().build();
+    String token = authService.forgotPassword(request);
+    return ResponseEntity.accepted().body(new MessageResponse("DEV MODE TOKEN: " + token));
   }
 
   @SecurityRequirements()
@@ -249,7 +249,7 @@ public class AuthController {
   @PostMapping("/resend-verification")
   public ResponseEntity<MessageResponse> resendVerification(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-    authService.resendVerification(request);
-    return ResponseEntity.accepted().build();
+    String token = authService.resendVerification(request);
+    return ResponseEntity.accepted().body(new MessageResponse("DEV MODE TOKEN: " + token));
   }
 }
