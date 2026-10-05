@@ -141,4 +141,31 @@ public class UserService {
             .toList();
     return ResponseEntity.ok(presenceList);
   }
+  @Autowired private com.example.chat_app_backend.auth.repo.RefreshTokenRepository refreshTokenRepository;
+
+  public ResponseEntity<?> getSessions(UUID userId) {
+    List<com.example.chat_app_backend.auth.model.RefreshToken> tokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(userId);
+    List<java.util.Map<String, Object>> sessions = tokens.stream().map(t -> {
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("sessionId", t.getId());
+        map.put("deviceInfo", t.getDeviceInfo());
+        map.put("createdAt", t.getCreatedAt());
+        map.put("lastUsedAt", t.getUsedAt());
+        return map;
+    }).toList();
+    return ResponseEntity.ok(sessions);
+  }
+
+  @Transactional
+  public ResponseEntity<?> logoutSession(UUID userId, UUID sessionId) {
+    Optional<com.example.chat_app_backend.auth.model.RefreshToken> tokenOpt = refreshTokenRepository.findById(sessionId);
+    if (tokenOpt.isPresent()) {
+        com.example.chat_app_backend.auth.model.RefreshToken token = tokenOpt.get();
+        if (token.getUserId().equals(userId)) {
+            token.setRevokedAt(java.time.Instant.now());
+            refreshTokenRepository.save(token);
+        }
+    }
+    return ResponseEntity.ok(new MessageResponse("Session logged out successfully"));
+  }
 }

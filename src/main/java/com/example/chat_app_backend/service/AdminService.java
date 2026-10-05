@@ -1,8 +1,17 @@
 package com.example.chat_app_backend.service;
 
 import com.example.chat_app_backend.model.User;
+import com.example.chat_app_backend.model.Report;
+import com.example.chat_app_backend.model.AuditLog;
+import com.example.chat_app_backend.chat.conversation.Conversation;
+import com.example.chat_app_backend.chat.message.Message;
 import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.repository.ReportRepository;
+import com.example.chat_app_backend.repository.AuditLogRepository;
+import com.example.chat_app_backend.chat.conversation.ConversationRepository;
+import com.example.chat_app_backend.chat.message.MessageRepository;
+import com.example.chat_app_backend.auth.AuthService;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,22 +19,44 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @Service
 public class AdminService {
 
   @Autowired private UserRepository userRepository;
-
+  @Autowired private ReportRepository reportRepository;
+  @Autowired private AuditLogRepository auditLogRepository;
+  @Autowired private ConversationRepository conversationRepository;
+  @Autowired private MessageRepository messageRepository;
+  @Autowired private AuthService authService;
   @Autowired private PasswordEncoder passwordEncoder;
 
   public ResponseEntity<?> getStatsOverview() {
-    return ResponseEntity.ok(java.util.Map.of("message", "Stats not implemented"));
+    long totalUsers = userRepository.count();
+    long totalConversations = conversationRepository.count();
+    long totalReports = reportRepository.count();
+    return ResponseEntity.ok(java.util.Map.of(
+        "totalUsers", totalUsers,
+        "totalConversations", totalConversations,
+        "totalReports", totalReports
+    ));
   }
 
   public ResponseEntity<?> getUsers(String q, String status, int cursor, int limit) {
+    PageRequest pageRequest = PageRequest.of(cursor, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<User> usersPage;
+    if (q != null && !q.isBlank()) {
+        usersPage = userRepository.findByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(q, q, pageRequest);
+    } else {
+        usersPage = userRepository.findAll(pageRequest);
+    }
+    
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
-            java.util.List.of(), false, null));
+            usersPage.getContent(), usersPage.hasNext(), usersPage.hasNext() ? String.valueOf(cursor + 1) : null));
   }
 
   public ResponseEntity<?> getUserById(UUID id) {
@@ -65,7 +96,8 @@ public class AdminService {
 
   @Transactional
   public ResponseEntity<?> forceLogout(UUID id) {
-    return ResponseEntity.ok(new MessageResponse("Force logout not implemented."));
+    authService.logoutAll(id);
+    return ResponseEntity.ok(new MessageResponse("User forcefully logged out from all sessions."));
   }
 
   @Transactional
@@ -97,51 +129,101 @@ public class AdminService {
   }
 
   public ResponseEntity<?> getConversations(String q, String status, int cursor) {
+    PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<Conversation> page = conversationRepository.findAll(pageRequest);
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
-            java.util.List.of(), false, null));
+            page.getContent(), page.hasNext(), page.hasNext() ? String.valueOf(cursor + 1) : null));
   }
 
   @Transactional
   public ResponseEntity<?> updateConversationStatus(
       UUID id,
       com.example.chat_app_backend.payload.request.UpdateConversationStatusRequest request) {
-    return ResponseEntity.ok(new MessageResponse("Update conversation status not implemented."));
+    Conversation conv = conversationRepository.findById(id)
+        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Conversation not found"));
+    conv.setStatus(request.status());
+    conversationRepository.save(conv);
+    return ResponseEntity.ok(new MessageResponse("Conversation status updated successfully."));
   }
 
   public ResponseEntity<?> getReports(String status, int cursor) {
+    PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<Report> page;
+    if (status != null && !status.isBlank()) {
+        page = reportRepository.findByStatus(status, pageRequest);
+    } else {
+        page = reportRepository.findAll(pageRequest);
+    }
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
-            java.util.List.of(), false, null));
+            page.getContent(), page.hasNext(), page.hasNext() ? String.valueOf(cursor + 1) : null));
   }
 
   public ResponseEntity<?> getReportDetail(UUID id) {
-    return ResponseEntity.ok(java.util.Map.of("message", "Report detail not implemented"));
+    Report report = reportRepository.findById(id)
+        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Report not found"));
+    return ResponseEntity.ok(report);
   }
 
   @Transactional
   public ResponseEntity<?> resolveReport(
       UUID id, com.example.chat_app_backend.payload.request.ResolveReportRequest request) {
-    return ResponseEntity.ok(new MessageResponse("Resolve report not implemented."));
+    Report report = reportRepository.findById(id)
+        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Report not found"));
+    
+    report.setStatus("RESOLVED");
+    report.setResolution(request.resolution());
+    report.setResolvedAt(java.time.Instant.now());
+    reportRepository.save(report);
+    
+    return ResponseEntity.ok(new MessageResponse("Report resolved successfully."));
   }
 
   @Transactional
   public ResponseEntity<?> deleteMessage(UUID id, String reason) {
-    return ResponseEntity.ok(new MessageResponse("Delete message not implemented."));
+    Message message = messageRepository.findById(id)
+        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Message not found"));
+    
+    message.setRemovedByAdmin(true);
+    message.setRemovalReason(reason);
+    message.setDeletedAt(java.time.Instant.now());
+    message.setContent("This message was removed by an admin.");
+    messageRepository.save(message);
+    
+    return ResponseEntity.ok(new MessageResponse("Message deleted successfully."));
   }
 
   public ResponseEntity<?> getAuditLogs(
       UUID actor, String action, String from, String to, int cursor) {
+    PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<AuditLog> page;
+    
+    if (actor != null && action != null && !action.isBlank()) {
+        page = auditLogRepository.findByActorIdAndAction(actor, action, pageRequest);
+    } else if (actor != null) {
+        page = auditLogRepository.findByActorId(actor, pageRequest);
+    } else if (action != null && !action.isBlank()) {
+        page = auditLogRepository.findByAction(action, pageRequest);
+    } else {
+        page = auditLogRepository.findAll(pageRequest);
+    }
+    
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
-            java.util.List.of(), false, null));
+            page.getContent(), page.hasNext(), page.hasNext() ? String.valueOf(cursor + 1) : null));
   }
 
   @Transactional
   public ResponseEntity<?> transferOwnership(
       com.example.chat_app_backend.payload.request.TransferOwnershipRequest request) {
-    // Find current user doing the transfer
-    // Note: For simplicity we assume it's valid if they reached here (due to hasRole(ADMIN)).
-    return ResponseEntity.ok(new MessageResponse("Transfer ownership not implemented."));
+      
+      User targetUser = userRepository.findById(request.targetUserId())
+          .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Target user not found"));
+          
+      targetUser.setRole("ROLE_ADMIN");
+      userRepository.save(targetUser);
+      
+      return ResponseEntity.ok(new MessageResponse("Ownership transferred successfully."));
   }
 }
