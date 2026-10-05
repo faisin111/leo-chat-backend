@@ -59,7 +59,7 @@ public class JwtUtils {
 
   public ResponseCookie generateRefreshJwtCookie(String refreshToken) {
     return ResponseCookie.from(jwtRefreshCookie, refreshToken)
-        .path("/api/auth/refreshtoken")
+        .path("/api/v1/auth/refresh")
         .maxAge(24 * 60 * 60)
         .httpOnly(true)
         .secure(false)
@@ -73,7 +73,7 @@ public class JwtUtils {
 
   public ResponseCookie getCleanJwtRefreshCookie() {
     return ResponseCookie.from(jwtRefreshCookie, "")
-        .path("/api/auth/refreshtoken")
+        .path("/api/v1/auth/refresh")
         .maxAge(0)
         .build();
   }
