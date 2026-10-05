@@ -38,7 +38,7 @@ public class AdminService {
     public ResponseEntity<?> getUserById(UUID id) {
         Optional<User> userOpt = userRepository.findById(id);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
+            throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
         }
         User user = userOpt.get();
                 return ResponseEntity.ok(java.util.Map.of(
@@ -55,11 +55,11 @@ public class AdminService {
     public ResponseEntity<?> updateUserStatus(UUID id, com.example.chat_app_backend.payload.request.UpdateUserStatusRequest request) {
         Optional<User> userOpt = userRepository.findById(id);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
+            throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
         }
         User user = userOpt.get();
         if ("ROLE_ADMIN".equals(user.getRole())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Cannot target admin."));
+            throw new com.example.chat_app_backend.exception.ForbiddenException("Error: Cannot target admin.");
         }
         user.setStatus(request.status());
         user.setStatusReason(request.reason());
@@ -77,11 +77,11 @@ public class AdminService {
     public ResponseEntity<?> deleteUser(UUID id) {
         Optional<User> userOpt = userRepository.findById(id);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
+            throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
         }
         User user = userOpt.get();
         if ("ROLE_ADMIN".equals(user.getRole())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Cannot target admin."));
+            throw new com.example.chat_app_backend.exception.ForbiddenException("Error: Cannot target admin.");
         }
         
         user.setStatus("DELETED");

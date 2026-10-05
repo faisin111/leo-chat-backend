@@ -30,7 +30,7 @@ public class UserService {
         Optional<User> userOpt = userRepository.findById(id);
         
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(new MessageResponse(AppConstants.ERR_USER_NOT_FOUND));
+            throw new com.example.chat_app_backend.exception.NotFoundException(AppConstants.ERR_USER_NOT_FOUND);
         }
 
         User user = userOpt.get();
@@ -56,7 +56,7 @@ public class UserService {
         Optional<User> userOpt = userRepository.findById(userDetails.getId());
         
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(new MessageResponse(AppConstants.ERR_USER_NOT_FOUND));
+            throw new com.example.chat_app_backend.exception.NotFoundException(AppConstants.ERR_USER_NOT_FOUND);
         }
 
         User user = userOpt.get();
@@ -82,10 +82,10 @@ public class UserService {
         UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         User user = userRepository.findById(userDetails.getId()).orElse(null);
         if (user == null) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: User not found."));
+            throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
         }
         if ("ADMIN".equals(user.getRole())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("BUSINESS_RULE: Transfer ownership first"));
+            throw new com.example.chat_app_backend.exception.BusinessRuleException("BUSINESS_RULE: Transfer ownership first");
         }
         user.setStatus("DISABLED");
         userRepository.save(user);
@@ -96,7 +96,7 @@ public class UserService {
 
     public ResponseEntity<?> searchUsers(String query, int page, int size) {
         if (query == null || query.trim().length() < 2) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Search query must be at least 2 characters"));
+            throw new com.example.chat_app_backend.exception.BusinessRuleException("Search query must be at least 2 characters");
         }
         
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
