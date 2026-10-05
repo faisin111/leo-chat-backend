@@ -12,5 +12,4 @@ public record ConversationMemberResponse(
     Instant joinedAt,
     Instant leftAt,
     Instant pinnedAt,
-    Instant archivedAt
-) {}
+    Instant archivedAt) {}

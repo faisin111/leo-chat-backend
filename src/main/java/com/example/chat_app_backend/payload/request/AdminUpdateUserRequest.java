@@ -9,5 +9,4 @@ public record AdminUpdateUserRequest(
     String phoneNumber,
     String bio,
     Integer age,
-    String region
-) {}
+    String region) {}

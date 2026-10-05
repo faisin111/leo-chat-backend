@@ -8,52 +8,86 @@ import java.util.UUID;
 @Table(name = "profiles")
 public class Profile {
 
-    @Id
-    private UUID userId;
+  @Id private UUID userId;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
-    @JoinColumn(name = "user_id")
-    @JsonIgnore
-    private User user;
+  @OneToOne(fetch = FetchType.LAZY)
+  @MapsId
+  @JoinColumn(name = "user_id")
+  @JsonIgnore
+  private User user;
 
-    @Column(name = "profile_picture_url")
-    private String profilePictureUrl;
+  @Column(name = "profile_picture_url")
+  private String profilePictureUrl;
 
-    @Column(name = "phone_number")
-    private String phoneNumber;
+  @Column(name = "phone_number")
+  private String phoneNumber;
 
-    @Column(columnDefinition = "TEXT")
-    private String bio;
+  @Column(columnDefinition = "TEXT")
+  private String bio;
 
-    private Integer age;
+  private Integer age;
 
-    private String region;
+  private String region;
 
-    public Profile() {}
+  public Profile() {}
 
-    public Profile(User user) {
-        this.user = user;
-    }
+  public Profile(User user) {
+    this.user = user;
+  }
 
-    public UUID getUserId() { return userId; }
-    public void setUserId(UUID userId) { this.userId = userId; }
+  public UUID getUserId() {
+    return userId;
+  }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+  public void setUserId(UUID userId) {
+    this.userId = userId;
+  }
 
-    public String getProfilePictureUrl() { return profilePictureUrl; }
-    public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
+  public User getUser() {
+    return user;
+  }
 
-    public String getPhoneNumber() { return phoneNumber; }
-    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+  public void setUser(User user) {
+    this.user = user;
+  }
 
-    public String getBio() { return bio; }
-    public void setBio(String bio) { this.bio = bio; }
+  public String getProfilePictureUrl() {
+    return profilePictureUrl;
+  }
 
-    public Integer getAge() { return age; }
-    public void setAge(Integer age) { this.age = age; }
+  public void setProfilePictureUrl(String profilePictureUrl) {
+    this.profilePictureUrl = profilePictureUrl;
+  }
 
-    public String getRegion() { return region; }
-    public void setRegion(String region) { this.region = region; }
+  public String getPhoneNumber() {
+    return phoneNumber;
+  }
+
+  public void setPhoneNumber(String phoneNumber) {
+    this.phoneNumber = phoneNumber;
+  }
+
+  public String getBio() {
+    return bio;
+  }
+
+  public void setBio(String bio) {
+    this.bio = bio;
+  }
+
+  public Integer getAge() {
+    return age;
+  }
+
+  public void setAge(Integer age) {
+    this.age = age;
+  }
+
+  public String getRegion() {
+    return region;
+  }
+
+  public void setRegion(String region) {
+    this.region = region;
+  }
 }

@@ -7,4 +7,4 @@ public record UpdateProfileRequest(
     Integer age,
     String region,
     String displayName // Adding displayName for V2
-) {}
+    ) {}

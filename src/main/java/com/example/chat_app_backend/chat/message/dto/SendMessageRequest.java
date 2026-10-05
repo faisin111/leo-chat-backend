@@ -9,5 +9,4 @@ public record SendMessageRequest(
     @NotBlank String clientMessageId,
     String type,
     String content,
-    UUID replyToId
-) {}
+    UUID replyToId) {}

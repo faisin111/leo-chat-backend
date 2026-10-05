@@ -12,25 +12,28 @@ import org.springframework.core.env.Environment;
 @org.springframework.scheduling.annotation.EnableAsync
 public class ChatAppBackendApplication implements ApplicationListener<ApplicationReadyEvent> {
 
-    private static final Logger log = LoggerFactory.getLogger(ChatAppBackendApplication.class);
+  private static final Logger log = LoggerFactory.getLogger(ChatAppBackendApplication.class);
 
-    public static void main(String[] args) {
-        SpringApplication.run(ChatAppBackendApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(ChatAppBackendApplication.class, args);
+  }
 
-    @Override
-    public void onApplicationEvent(ApplicationReadyEvent event) {
-        Environment env = event.getApplicationContext().getEnvironment();
-        String port = env.getProperty("server.port", "8080");
-        String contextPath = env.getProperty("server.servlet.context-path", "");
-        String baseUrl = "http://localhost:" + port + contextPath;
+  @Override
+  public void onApplicationEvent(ApplicationReadyEvent event) {
+    Environment env = event.getApplicationContext().getEnvironment();
+    String port = env.getProperty("server.port", "8080");
+    String contextPath = env.getProperty("server.servlet.context-path", "");
+    String baseUrl = "http://localhost:" + port + contextPath;
 
-        log.info("\n----------------------------------------------------------\n\t" +
-                 "🚀 SERVER STARTED SUCCESSFULLY! 🚀\n\t" +
-                 "API Base URL : {}/api/v1\n\t" +
-                 "Swagger UI   : {}/swagger-ui.html\n\t" +
-                 "API Docs     : {}/v3/api-docs\n" +
-                 "----------------------------------------------------------", 
-                 baseUrl, baseUrl, baseUrl);
-    }
+    log.info(
+        "\n----------------------------------------------------------\n\t"
+            + "🚀 SERVER STARTED SUCCESSFULLY! 🚀\n\t"
+            + "API Base URL : {}/api/v1\n\t"
+            + "Swagger UI   : {}/swagger-ui.html\n\t"
+            + "API Docs     : {}/v3/api-docs\n"
+            + "----------------------------------------------------------",
+        baseUrl,
+        baseUrl,
+        baseUrl);
+  }
 }

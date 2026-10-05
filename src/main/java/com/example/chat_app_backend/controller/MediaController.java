@@ -1,17 +1,17 @@
 package com.example.chat_app_backend.controller;
 
-import com.example.chat_app_backend.payload.request.MediaPresignRequest;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
 import com.example.chat_app_backend.payload.request.MediaConfirmRequest;
+import com.example.chat_app_backend.payload.request.MediaPresignRequest;
 import com.example.chat_app_backend.service.MediaService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import com.example.chat_app_backend.config.openapi.StandardErrors;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -21,18 +21,23 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @StandardErrors
 public class MediaController {
 
-    @Autowired
-    private MediaService mediaService;
+  @Autowired private MediaService mediaService;
 
-    @Operation(summary = "Get pre-signed upload URL")
-    @PostMapping("/presign")
-    public ResponseEntity<?> presign(@AuthenticationPrincipal com.example.chat_app_backend.security.services.UserDetailsImpl userDetails, @Valid @RequestBody MediaPresignRequest request) {
-        return mediaService.presign(userDetails.getId(), request);
-    }
+  @Operation(summary = "Get pre-signed upload URL")
+  @PostMapping("/presign")
+  public ResponseEntity<?> presign(
+      @AuthenticationPrincipal
+          com.example.chat_app_backend.security.services.UserDetailsImpl userDetails,
+      @Valid @RequestBody MediaPresignRequest request) {
+    return mediaService.presign(userDetails.getId(), request);
+  }
 
-    @Operation(summary = "Confirm upload")
-    @PostMapping("/confirm")
-    public ResponseEntity<?> confirm(@AuthenticationPrincipal com.example.chat_app_backend.security.services.UserDetailsImpl userDetails, @Valid @RequestBody MediaConfirmRequest request) {
-        return mediaService.confirm(userDetails.getId(), request);
-    }
+  @Operation(summary = "Confirm upload")
+  @PostMapping("/confirm")
+  public ResponseEntity<?> confirm(
+      @AuthenticationPrincipal
+          com.example.chat_app_backend.security.services.UserDetailsImpl userDetails,
+      @Valid @RequestBody MediaConfirmRequest request) {
+    return mediaService.confirm(userDetails.getId(), request);
+  }
 }

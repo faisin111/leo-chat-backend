@@ -14,5 +14,4 @@ public record MessageResponse(
     UUID replyToId,
     Instant createdAt,
     Instant editedAt,
-    Instant deletedAt
-) {}
+    Instant deletedAt) {}

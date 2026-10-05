@@ -11,33 +11,33 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
-import java.util.UUID;
-
 @Controller
 public class ChatWsController {
 
-    private final MessageService messageService;
-    private final SimpMessagingTemplate messagingTemplate;
+  private final MessageService messageService;
+  private final SimpMessagingTemplate messagingTemplate;
 
-    public ChatWsController(MessageService messageService, SimpMessagingTemplate messagingTemplate) {
-        this.messageService = messageService;
-        this.messagingTemplate = messagingTemplate;
-    }
+  public ChatWsController(MessageService messageService, SimpMessagingTemplate messagingTemplate) {
+    this.messageService = messageService;
+    this.messagingTemplate = messagingTemplate;
+  }
 
-    @MessageMapping("/chat.send")
-    public void sendMessage(@Payload SendMessageRequest request, SimpMessageHeaderAccessor headerAccessor) {
-        Authentication auth = (Authentication) headerAccessor.getUser();
-        if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl)) return;
-        
-        UserDetailsImpl user = (UserDetailsImpl) auth.getPrincipal();
-        
-        // Save to DB via service
-        MessageResponse response = messageService.sendMessage(user.getId(), request.conversationId(), request);
-        
-        // Broadcast to conversation topic
-        messagingTemplate.convertAndSend("/topic/conversations." + request.conversationId(), response);
-        
-        // Send ACK back to sender
-        messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/acks", response);
-    }
+  @MessageMapping("/chat.send")
+  public void sendMessage(
+      @Payload SendMessageRequest request, SimpMessageHeaderAccessor headerAccessor) {
+    Authentication auth = (Authentication) headerAccessor.getUser();
+    if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl)) return;
+
+    UserDetailsImpl user = (UserDetailsImpl) auth.getPrincipal();
+
+    // Save to DB via service
+    MessageResponse response =
+        messageService.sendMessage(user.getId(), request.conversationId(), request);
+
+    // Broadcast to conversation topic
+    messagingTemplate.convertAndSend("/topic/conversations." + request.conversationId(), response);
+
+    // Send ACK back to sender
+    messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/acks", response);
+  }
 }

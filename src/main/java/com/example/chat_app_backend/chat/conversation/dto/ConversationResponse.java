@@ -13,5 +13,4 @@ public record ConversationResponse(
     long lastSeq,
     Instant lastMessageAt,
     Instant createdAt,
-    String status
-) {}
+    String status) {}

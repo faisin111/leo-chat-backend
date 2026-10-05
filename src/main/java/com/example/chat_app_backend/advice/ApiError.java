@@ -10,7 +10,6 @@ public record ApiError(
     String message,
     String path,
     String traceId,
-    List<Field> errors
-) {
-    public record Field(String field, String message) {}
+    List<Field> errors) {
+  public record Field(String field, String message) {}
 }

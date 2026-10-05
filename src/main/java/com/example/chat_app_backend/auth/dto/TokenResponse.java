@@ -8,9 +8,9 @@ public record TokenResponse(
     String refreshToken,
     UUID id,
     String username,
-    String email
-) {
-    public TokenResponse(String accessToken, String refreshToken, UUID id, String username, String email) {
-        this(accessToken, "Bearer", refreshToken, id, username, email);
-    }
+    String email) {
+  public TokenResponse(
+      String accessToken, String refreshToken, UUID id, String username, String email) {
+    this(accessToken, "Bearer", refreshToken, id, username, email);
+  }
 }

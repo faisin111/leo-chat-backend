@@ -4,6 +4,4 @@ import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 import java.util.UUID;
 
-public record AddMembersRequest(
-    @NotEmpty List<UUID> memberIds
-) {}
+public record AddMembersRequest(@NotEmpty List<UUID> memberIds) {}

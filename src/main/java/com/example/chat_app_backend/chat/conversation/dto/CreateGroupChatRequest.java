@@ -7,6 +7,4 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateGroupChatRequest(
-    @NotBlank @Size(max = 100) String title,
-    @NotEmpty List<UUID> memberIds
-) {}
+    @NotBlank @Size(max = 100) String title, @NotEmpty List<UUID> memberIds) {}
