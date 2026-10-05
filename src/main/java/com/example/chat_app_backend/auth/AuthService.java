@@ -217,10 +217,10 @@ public class AuthService {
   }
 
   @Transactional
-  public void forgotPassword(com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-    userRepository
+  public String forgotPassword(com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
+    return userRepository
         .findByEmail(request.email())
-        .ifPresent(
+        .map(
             user -> {
               verificationTokenRepository.deleteByUserIdAndType(user.getId(), "PASSWORD_RESET");
               String token = UUID.randomUUID().toString();
@@ -232,7 +232,9 @@ public class AuthService {
                       Instant.now().plus(java.time.Duration.ofHours(1)));
               verificationTokenRepository.save(vToken);
               emailService.sendPasswordResetEmail(user.getEmail(), token);
-            });
+              return token;
+            })
+        .orElse(null);
   }
 
   @Transactional
@@ -285,11 +287,11 @@ public class AuthService {
   }
 
   @Transactional
-  public void resendVerification(
+  public String resendVerification(
       com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-    userRepository
+    return userRepository
         .findByEmail(request.email())
-        .ifPresent(
+        .map(
             user -> {
               verificationTokenRepository.deleteByUserIdAndType(user.getId(), "EMAIL_VERIFICATION");
               String token = UUID.randomUUID().toString();
@@ -301,6 +303,8 @@ public class AuthService {
                       Instant.now().plus(java.time.Duration.ofHours(24)));
               verificationTokenRepository.save(vToken);
               emailService.sendVerificationEmail(user.getEmail(), token);
-            });
+              return token;
+            })
+        .orElse(null);
   }
 }

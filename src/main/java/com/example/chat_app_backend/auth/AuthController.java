@@ -218,7 +218,7 @@ public class AuthController {
       summary = "Forgot Password",
       description = "Email a reset token (always responds 202, no user enumeration)")
   @PostMapping("/forgot-password")
-  public ResponseEntity<Void> forgotPassword(
+  public ResponseEntity<MessageResponse> forgotPassword(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
     authService.forgotPassword(request);
     return ResponseEntity.accepted().build();
@@ -247,7 +247,7 @@ public class AuthController {
       summary = "Resend Verification",
       description = "Resend verification email (rate-limited)")
   @PostMapping("/resend-verification")
-  public ResponseEntity<Void> resendVerification(
+  public ResponseEntity<MessageResponse> resendVerification(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
     authService.resendVerification(request);
     return ResponseEntity.accepted().build();
