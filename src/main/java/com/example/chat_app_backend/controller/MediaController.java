@@ -1,55 +1,38 @@
 package com.example.chat_app_backend.controller;
 
+import com.example.chat_app_backend.payload.request.MediaPresignRequest;
+import com.example.chat_app_backend.payload.request.MediaConfirmRequest;
+import com.example.chat_app_backend.service.MediaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.util.StringUtils;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api/media")
+@RequestMapping("/api/v1/media")
+@Tag(name = "Media", description = "Endpoints for managing media uploads")
+@SecurityRequirement(name = "bearerAuth")
+@StandardErrors
 public class MediaController {
 
-    private final Path fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
+    @Autowired
+    private MediaService mediaService;
 
-    public MediaController() {
-        try {
-            Files.createDirectories(this.fileStorageLocation);
-        } catch (Exception ex) {
-            throw new RuntimeException("Could not create the directory where the uploaded files will be stored.", ex);
-        }
+    @Operation(summary = "Get pre-signed upload URL")
+    @PostMapping("/presign")
+    public ResponseEntity<?> presign(@AuthenticationPrincipal com.example.chat_app_backend.security.services.UserDetailsImpl userDetails, @Valid @RequestBody MediaPresignRequest request) {
+        return mediaService.presign(userDetails.getId(), request);
     }
 
-    @PostMapping("/upload")
-    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
-        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
-        String fileName = UUID.randomUUID().toString() + "_" + originalFileName;
-
-        try {
-            if (fileName.contains("..")) {
-                return ResponseEntity.badRequest().body("Sorry! Filename contains invalid path sequence " + fileName);
-            }
-
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
-            String fileDownloadUri = "/uploads/" + fileName; // Dummy URL for serving locally
-
-            Map<String, String> response = new HashMap<>();
-            response.put("url", fileDownloadUri);
-            return ResponseEntity.ok(response);
-            
-        } catch (IOException ex) {
-            return ResponseEntity.internalServerError().body("Could not store file " + fileName + ". Please try again!");
-        }
+    @Operation(summary = "Confirm upload")
+    @PostMapping("/confirm")
+    public ResponseEntity<?> confirm(@AuthenticationPrincipal com.example.chat_app_backend.security.services.UserDetailsImpl userDetails, @Valid @RequestBody MediaConfirmRequest request) {
+        return mediaService.confirm(userDetails.getId(), request);
     }
 }
