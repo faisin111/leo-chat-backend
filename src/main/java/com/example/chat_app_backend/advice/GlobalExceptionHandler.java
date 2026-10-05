@@ -20,6 +20,12 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler({org.springframework.web.servlet.resource.NoResourceFoundException.class, org.springframework.web.servlet.NoHandlerFoundException.class})
+    public ResponseEntity<ApiError> handleNoResourceFound(Exception e, HttpServletRequest req) {
+        return buildError(HttpStatus.NOT_FOUND, ERR_NOT_FOUND, "The requested resource was not found.", req, List.of());
+    }
+
+
     private static final String ERR_VALIDATION = "VALIDATION_ERROR";
     private static final String MSG_VALIDATION = "Request validation failed";
     private static final String ERR_UNAUTHORIZED = "UNAUTHORIZED";
