@@ -202,3 +202,6 @@ What was done, in 2-4 lines. Roadmap item: <ID>
 - Creating a second admin, or a `role` field in a request body.
 - "Fixing" a failing test by deleting or loosening the assertion.
 - Big-bang refactors mixed with features.
+
+### Imports
+- Always use explicit imports (e.g., `import java.util.List;`). Do not use implicit wildcard imports (e.g., `import java.util.*;`).
