@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.core.env.Environment;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableAsync
 public class ChatAppBackendApplication implements ApplicationListener<ApplicationReadyEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(ChatAppBackendApplication.class);

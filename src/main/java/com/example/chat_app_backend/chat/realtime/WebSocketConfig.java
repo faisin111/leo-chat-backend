@@ -19,7 +19,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic", "/queue", "/user");
+                config.enableSimpleBroker("/topic", "/queue", "/user")
+              .setTaskScheduler(new org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler())
+              .setHeartbeatValue(new long[]{10000, 10000});
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
     }
@@ -31,8 +33,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .withSockJS();
     }
 
-    @Override
+        @Override
+    public void configureWebSocketTransport(org.springframework.web.socket.config.annotation.WebSocketTransportRegistration registry) {
+        registry.setMessageSizeLimit(64 * 1024); // 64 KB
+        registry.setSendBufferSizeLimit(512 * 1024); // 512 KB
+        registry.setSendTimeLimit(20000); // 20s
+    }
+
+        @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.taskExecutor().corePoolSize(10).maxPoolSize(50);
         registration.interceptors(wsAuthInterceptor);
     }
 }
