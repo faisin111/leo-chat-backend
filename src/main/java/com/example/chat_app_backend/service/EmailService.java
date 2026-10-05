@@ -46,6 +46,7 @@ public class EmailService {
   @Async
   public void sendPasswordResetEmail(String toEmail, String token) {
     String resetUrl = publicUrl + "/reset-password?token=" + token;
+    System.out.println("\n=== DEV MODE: PASSWORD RESET TOKEN ===\n" + token + "\n======================================\n");
 
     SimpleMailMessage message = new SimpleMailMessage();
     message.setFrom(fromAddress);
