@@ -72,17 +72,9 @@ public class AuthService {
             throw new ConflictException(AppConstants.ERR_EMAIL_TAKEN);
         }
 
-        String strRole = signUpRequest.role();
         String role = AppConstants.ROLE_USER;
-
-        if (strRole != null) {
-            String lowerRole = strRole.toLowerCase();
-            if (lowerRole.equals(ADMIN_LOWER) || lowerRole.equals(ROLE_ADMIN_LOWER)) {
-                if (userRepository.existsByRole(AppConstants.ROLE_ADMIN)) {
-                    throw new ConflictException(AppConstants.ERR_ADMIN_EXISTS);
-                }
-                role = AppConstants.ROLE_ADMIN;
-            }
+        if (!userRepository.existsByRole(AppConstants.ROLE_ADMIN)) {
+            role = AppConstants.ROLE_ADMIN;
         }
 
         User user = new User(signUpRequest.username(), signUpRequest.email(),
