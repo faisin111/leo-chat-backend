@@ -25,6 +25,7 @@ public record RegisterRequest(
     @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).*$", 
              message = "Password must contain at least one digit, one lowercase, one uppercase, and one special character (@#$%^&+=!)")
     String password,
+    String displayName,
 
     @Schema(description = "Optional user role (e.g., 'admin', 'user'). Defaults to 'user'. Only one admin allowed.", example = "user")
     String role

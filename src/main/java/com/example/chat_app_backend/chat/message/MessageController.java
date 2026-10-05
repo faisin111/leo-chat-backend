@@ -30,7 +30,7 @@ public class MessageController {
 
     @Operation(summary = "Get message history")
     @GetMapping("/api/v1/conversations/{id}/messages")
-    public ResponseEntity<List<MessageResponse>> getHistory(
+    public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<MessageResponse>> getHistory(
             @AuthenticationPrincipal UserDetailsImpl user,
             @PathVariable UUID id,
             @RequestParam(required = false) Long beforeSeq,
