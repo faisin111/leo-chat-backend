@@ -94,12 +94,12 @@ public class AuthService {
 
     // Generate and send verification email automatically on registration
     String token = UUID.randomUUID().toString();
-    VerificationToken vToken = new VerificationToken(
-        token,
-        user.getId(),
-        "EMAIL_VERIFICATION",
-        Instant.now().plus(java.time.Duration.ofHours(24))
-    );
+    VerificationToken vToken =
+        new VerificationToken(
+            token,
+            user.getId(),
+            "EMAIL_VERIFICATION",
+            Instant.now().plus(java.time.Duration.ofHours(24)));
     verificationTokenRepository.save(vToken);
     emailService.sendVerificationEmail(user.getEmail(), token);
 
@@ -272,9 +272,11 @@ public class AuthService {
       throw new RuntimeException("Token expired");
     }
 
-    User user = userRepository.findById(vToken.getUserId())
-        .orElseThrow(() -> new RuntimeException("User not found"));
-        
+    User user =
+        userRepository
+            .findById(vToken.getUserId())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
     user.setEmailVerified(true);
     userRepository.save(user);
 

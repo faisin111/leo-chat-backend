@@ -1,6 +1,16 @@
 package com.example.chat_app_backend.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -59,13 +69,18 @@ public class User {
     updatedAt = Instant.now();
   }
 
-      @Column(nullable = false)
-    private boolean isEmailVerified = false;
-    
-    public boolean isEmailVerified() { return isEmailVerified; }
-    public void setEmailVerified(boolean emailVerified) { isEmailVerified = emailVerified; }
+  @Column(nullable = false)
+  private boolean isEmailVerified = false;
 
-    public User() {}
+  public boolean isEmailVerified() {
+    return isEmailVerified;
+  }
+
+  public void setEmailVerified(boolean emailVerified) {
+    isEmailVerified = emailVerified;
+  }
+
+  public User() {}
 
   public User(String username, String email, String passwordHash, String role, String displayName) {
     this.username = username;
