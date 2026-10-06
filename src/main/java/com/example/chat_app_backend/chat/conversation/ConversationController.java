@@ -45,7 +45,7 @@ public class ConversationController {
   @Operation(
       summary = "Get user conversations",
       description = "Returns all conversations sorted by latest activity")
-  @ApiResponse(responseCode = "200", description = "Successful response")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.ConversationPageResponse.class)))
   @GetMapping
   public ResponseEntity<
           com.example.chat_app_backend.payload.response.CursorPageResponse<ConversationResponse>>

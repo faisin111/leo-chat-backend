@@ -46,7 +46,7 @@ public class AdminController {
   }
 
   @Operation(summary = "List and filter users")
-  @ApiResponse(responseCode = "200", description = "Successful response")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.UserPageResponse.class)))
   @GetMapping("/users")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.User>> getUsers(
       @RequestParam(required = false) String q,
@@ -87,7 +87,7 @@ public class AdminController {
   }
 
   @Operation(summary = "Get conversation metadata")
-  @ApiResponse(responseCode = "200", description = "Successful response")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.ConversationPageResponse.class)))
   @GetMapping("/conversations")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.chat.conversation.Conversation>> getConversations(
       @RequestParam(required = false) String q,
@@ -107,7 +107,7 @@ public class AdminController {
   }
 
   @Operation(summary = "Moderation queue")
-  @ApiResponse(responseCode = "200", description = "Successful response")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.ReportPageResponse.class)))
   @GetMapping("/reports")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.Report>> getReports(
       @RequestParam(required = false) String status, @RequestParam(defaultValue = "0") int cursor) {
@@ -138,7 +138,7 @@ public class AdminController {
   }
 
   @Operation(summary = "Browse audit trail")
-  @ApiResponse(responseCode = "200", description = "Successful response")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.AuditLogPageResponse.class)))
   @GetMapping("/audit-logs")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.AuditLog>> getAuditLogs(
       @RequestParam(required = false) UUID actor,
