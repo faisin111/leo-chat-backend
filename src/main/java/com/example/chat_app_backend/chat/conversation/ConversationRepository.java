@@ -21,6 +21,10 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
   Optional<Long> getLastSeq(@Param("id") UUID id);
 
   @Query(
-      "SELECT c FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId ORDER BY c.lastMessageAt DESC")
-  List<Conversation> findByUserIdOrderByLastMessageAtDesc(@Param("userId") UUID userId);
+      "SELECT c FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
+  org.springframework.data.domain.Page<Conversation> findByUserIdOrderByLastMessageAtDesc(@Param("userId") UUID userId, org.springframework.data.domain.Pageable pageable);
+
+  @Query(
+      "SELECT COALESCE(SUM(c.lastSeq - cm.lastReadSeq), 0) FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId AND c.lastSeq > cm.lastReadSeq")
+  Long getUnreadCountByUserId(@Param("userId") UUID userId);
 }

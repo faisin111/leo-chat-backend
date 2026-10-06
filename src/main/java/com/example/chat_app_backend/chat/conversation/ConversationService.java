@@ -62,22 +62,16 @@ public class ConversationService {
   @Transactional(readOnly = true)
   public com.example.chat_app_backend.payload.response.CursorPageResponse<ConversationResponse>
       getUserConversations(UUID userId, Long cursor, int limit) {
-    List<ConversationMember> memberships = memberRepository.findByIdUserId(userId);
+    int page = (cursor == null) ? 0 : cursor.intValue();
+    org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, limit);
+    org.springframework.data.domain.Page<Conversation> pageResult = conversationRepository.findByUserIdOrderByLastMessageAtDesc(userId, pageable);
 
-    List<com.example.chat_app_backend.chat.conversation.dto.ConversationResponse> responses =
-        memberships.stream()
-            .map(m -> conversationRepository.findById(m.getId().getConversationId()))
-            .filter(java.util.Optional::isPresent)
-            .map(java.util.Optional::get)
-            // In a real app we'd sort by lastActivityAt and filter by cursor, but for scaffolding
-            // this is fine
-            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-            .map(this::mapToResponse)
-            .limit(limit)
-            .collect(java.util.stream.Collectors.toList());
+    List<ConversationResponse> responses = pageResult.getContent().stream()
+        .map(this::mapToResponse)
+        .collect(Collectors.toList());
 
-    boolean hasMore = memberships.size() > limit;
-    String nextCursor = responses.isEmpty() ? null : "dummy_cursor";
+    boolean hasMore = pageResult.hasNext();
+    String nextCursor = hasMore ? String.valueOf(page + 1) : null;
     return new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
         responses, hasMore, nextCursor);
   }
@@ -112,8 +106,8 @@ public class ConversationService {
   @Transactional(readOnly = true)
   public com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse getUnreadCount(
       UUID userId) {
-    long totalUnread = 0; // simplistic for now, should sum (conv.lastSeq - member.lastReadSeq)
-    return new com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse(totalUnread);
+    Long totalUnread = conversationRepository.getUnreadCountByUserId(userId);
+    return new com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse(totalUnread != null ? totalUnread : 0L);
   }
 
   @Transactional
