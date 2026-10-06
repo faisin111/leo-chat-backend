@@ -60,6 +60,7 @@ public class AuthController {
             description = "Validation error",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
       })
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.UserInfoResponse.class)))
   @PostMapping("/login")
   public ResponseEntity<com.example.chat_app_backend.payload.response.UserInfoResponse> authenticateUser(
       @Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
@@ -95,6 +96,7 @@ public class AuthController {
             description = "Validation error",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
       })
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.auth.dto.RegisterResponse.class)))
   @PostMapping("/register")
   public ResponseEntity<com.example.chat_app_backend.auth.dto.RegisterResponse> registerUser(
       @Valid @RequestBody RegisterRequest signUpRequest) {
@@ -113,6 +115,7 @@ public class AuthController {
             description = "Invalid/expired refresh cookie",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
       })
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.UserInfoResponse.class)))
   @PostMapping("/refresh")
   public ResponseEntity<com.example.chat_app_backend.payload.response.UserInfoResponse> refreshtoken(HttpServletRequest request) {
     String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
@@ -147,6 +150,7 @@ public class AuthController {
             description = "Missing or invalid bearer token",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
       })
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/logout")
   public ResponseEntity<MessageResponse> logoutUser(HttpServletRequest request) {
     String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
@@ -175,6 +179,7 @@ public class AuthController {
             description = "Missing or invalid bearer token",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
       })
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/logout-all")
   public ResponseEntity<MessageResponse> logoutAll(
       @AuthenticationPrincipal UserDetailsImpl userDetails) {
@@ -191,6 +196,7 @@ public class AuthController {
       summary = "Change Password",
       description =
           "Requires current password; revokes other sessions; clears must_change_password")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/change-password")
   public ResponseEntity<MessageResponse> changePassword(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ChangePasswordRequest request,
@@ -208,6 +214,7 @@ public class AuthController {
   @Operation(
       summary = "Forgot Password",
       description = "Email a reset token (always responds 202, no user enumeration)")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/forgot-password")
   public ResponseEntity<MessageResponse> forgotPassword(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
@@ -217,6 +224,7 @@ public class AuthController {
 
   @SecurityRequirements()
   @Operation(summary = "Reset Password", description = "Set new password with token")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/reset-password")
   public ResponseEntity<MessageResponse> resetPassword(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ResetPasswordRequest request) {
@@ -226,6 +234,7 @@ public class AuthController {
 
   @SecurityRequirements()
   @Operation(summary = "Verify Email", description = "Confirm email token")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/verify-email")
   public ResponseEntity<MessageResponse> verifyEmail(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.VerifyEmailRequest request) {
@@ -237,6 +246,7 @@ public class AuthController {
   @Operation(
       summary = "Resend Verification",
       description = "Resend verification email (rate-limited)")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/resend-verification")
   public ResponseEntity<MessageResponse> resendVerification(
       @Valid @RequestBody com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {

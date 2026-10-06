@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -34,12 +39,14 @@ public class AdminController {
   @Autowired private AdminService adminService;
 
   @Operation(summary = "Get Stats Overview")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.Map.class)))
   @GetMapping("/stats/overview")
   public ResponseEntity<java.util.Map<String, Object>> getStatsOverview() {
     return adminService.getStatsOverview();
   }
 
   @Operation(summary = "List and filter users")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
   @GetMapping("/users")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.User>> getUsers(
       @RequestParam(required = false) String q,
@@ -50,12 +57,14 @@ public class AdminController {
   }
 
   @Operation(summary = "Get User by ID")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.Map.class)))
   @GetMapping("/users/{id}")
   public ResponseEntity<java.util.Map<String, Object>> getUserById(@PathVariable UUID id) {
     return adminService.getUserById(id);
   }
 
   @Operation(summary = "Update user status (ACTIVE, DISABLED, BANNED)")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @PatchMapping("/users/{id}/status")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> updateUserStatus(
       @PathVariable UUID id,
@@ -64,18 +73,21 @@ public class AdminController {
   }
 
   @Operation(summary = "Force logout user")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @PostMapping("/users/{id}/force-logout")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> forceLogout(@PathVariable UUID id) {
     return adminService.forceLogout(id);
   }
 
   @Operation(summary = "Soft delete and anonymize user")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @DeleteMapping("/users/{id}")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> deleteUser(@PathVariable UUID id) {
     return adminService.deleteUser(id);
   }
 
   @Operation(summary = "Get conversation metadata")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
   @GetMapping("/conversations")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.chat.conversation.Conversation>> getConversations(
       @RequestParam(required = false) String q,
@@ -85,6 +97,7 @@ public class AdminController {
   }
 
   @Operation(summary = "Update conversation status")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @PatchMapping("/conversations/{id}/status")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> updateConversationStatus(
       @PathVariable UUID id,
@@ -94,6 +107,7 @@ public class AdminController {
   }
 
   @Operation(summary = "Moderation queue")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
   @GetMapping("/reports")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.Report>> getReports(
       @RequestParam(required = false) String status, @RequestParam(defaultValue = "0") int cursor) {
@@ -101,12 +115,14 @@ public class AdminController {
   }
 
   @Operation(summary = "Report detail")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.model.Report.class)))
   @GetMapping("/reports/{id}")
   public ResponseEntity<com.example.chat_app_backend.model.Report> getReportDetail(@PathVariable UUID id) {
     return adminService.getReportDetail(id);
   }
 
   @Operation(summary = "Resolve report")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @PatchMapping("/reports/{id}")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> resolveReport(
       @PathVariable UUID id,
@@ -115,12 +131,14 @@ public class AdminController {
   }
 
   @Operation(summary = "Remove a reported message")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @DeleteMapping("/messages/{id}")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> deleteMessage(@PathVariable UUID id, @RequestParam String reason) {
     return adminService.deleteMessage(id, reason);
   }
 
   @Operation(summary = "Browse audit trail")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
   @GetMapping("/audit-logs")
   public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.AuditLog>> getAuditLogs(
       @RequestParam(required = false) UUID actor,
@@ -132,6 +150,7 @@ public class AdminController {
   }
 
   @Operation(summary = "Transfer Admin Ownership")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @PostMapping("/transfer-ownership")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> transferOwnership(
       @RequestBody com.example.chat_app_backend.payload.request.TransferOwnershipRequest request) {

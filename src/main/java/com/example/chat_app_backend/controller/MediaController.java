@@ -16,6 +16,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -28,6 +33,7 @@ public class MediaController {
   @Autowired private MediaService mediaService;
 
   @Operation(summary = "Get pre-signed upload URL")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.Map.class)))
   @PostMapping("/presign")
   public ResponseEntity<java.util.Map<String, Object>> presign(
       @AuthenticationPrincipal
@@ -37,6 +43,7 @@ public class MediaController {
   }
 
   @Operation(summary = "Confirm upload")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.Map.class)))
   @PostMapping("/confirm")
   public ResponseEntity<java.util.Map<String, Object>> confirm(
       @AuthenticationPrincipal

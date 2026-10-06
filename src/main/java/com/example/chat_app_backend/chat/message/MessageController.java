@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 
 @RestController
 @Tag(name = "Messages", description = "Endpoints for sending messages and fetching history")
@@ -47,6 +52,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Send HTTP Message")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PostMapping("/api/v1/conversations/{id}/messages")
   public ResponseEntity<MessageResponse> sendMessage(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -56,6 +62,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Mark messages read")
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/api/v1/conversations/{id}/read")
   public ResponseEntity<Void> readMessages(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -67,6 +74,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Single message")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @GetMapping("/api/v1/messages/{id}")
   public ResponseEntity<MessageResponse> getMessage(
       @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
@@ -74,6 +82,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Edit message")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
   @PatchMapping("/api/v1/messages/{id}")
   public ResponseEntity<MessageResponse> editMessage(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -84,6 +93,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Delete message")
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @DeleteMapping("/api/v1/messages/{id}")
   public ResponseEntity<Void> deleteMessage(
       @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
@@ -92,6 +102,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Add reaction")
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/api/v1/messages/{id}/reactions")
   public ResponseEntity<Void> addReaction(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -103,6 +114,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Remove reaction")
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @DeleteMapping("/api/v1/messages/{id}/reactions/{emoji}")
   public ResponseEntity<Void> removeReaction(
       @AuthenticationPrincipal UserDetailsImpl user,

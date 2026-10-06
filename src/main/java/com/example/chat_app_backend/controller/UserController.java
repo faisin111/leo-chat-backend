@@ -18,6 +18,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -32,6 +37,7 @@ public class UserController {
   @Operation(
       summary = "Get Current User",
       description = "Retrieves the profile of the currently authenticated user.")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.UserProfileResponse.class)))
   @GetMapping("/me")
   public ResponseEntity<com.example.chat_app_backend.payload.response.UserProfileResponse> getCurrentUser() {
     return userService.getCurrentUser();
@@ -40,6 +46,7 @@ public class UserController {
   @Operation(
       summary = "Get User by ID",
       description = "Retrieves the public profile of a specific user by their UUID.")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.UserProfileResponse.class)))
   @GetMapping("/{id}")
   public ResponseEntity<com.example.chat_app_backend.payload.response.UserProfileResponse> getUserById(@PathVariable UUID id) {
     return userService.getUserById(id);
@@ -48,6 +55,7 @@ public class UserController {
   @Operation(
       summary = "Update Profile",
       description = "Allows the current user to update their phone number, bio, age, and region.")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @PatchMapping("/me/profile")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> updateProfile(
       @RequestBody com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
@@ -57,12 +65,14 @@ public class UserController {
   @Operation(
       summary = "Deactivate Account",
       description = "Deactivate own account (rejected for the admin)")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @DeleteMapping("/me")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> deactivateAccount() {
     return userService.deactivateCurrentUser();
   }
 
   @Operation(summary = "Search users")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.List.class)))
   @GetMapping("/search")
   public ResponseEntity<java.util.List<com.example.chat_app_backend.payload.response.UserSearchResponse>> searchUsers(
       @RequestParam String q,
@@ -72,12 +82,14 @@ public class UserController {
   }
 
   @Operation(summary = "Get user presence")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.List.class)))
   @GetMapping("/presence")
   public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getPresence(@RequestParam java.util.List<UUID> ids) {
     return userService.getPresence(ids);
   }
 
   @Operation(summary = "Get active sessions")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.List.class)))
   @GetMapping("/me/sessions")
   public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getSessions(
       @AuthenticationPrincipal
@@ -86,6 +98,7 @@ public class UserController {
   }
 
   @Operation(summary = "Logout specific session")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.MessageResponse.class)))
   @DeleteMapping("/me/sessions/{sessionId}")
   public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> logoutSession(
       @AuthenticationPrincipal
