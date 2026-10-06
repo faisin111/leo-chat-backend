@@ -45,6 +45,7 @@ public class ConversationController {
   @Operation(
       summary = "Get user conversations",
       description = "Returns all conversations sorted by latest activity")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
   @GetMapping
   public ResponseEntity<
           com.example.chat_app_backend.payload.response.CursorPageResponse<ConversationResponse>>
@@ -105,6 +106,7 @@ public class ConversationController {
   }
 
   @Operation(summary = "Get conversation members")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.List.class)))
   @GetMapping("/{id}/members")
   public ResponseEntity<
           List<com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse>>

@@ -38,6 +38,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Get message history")
+  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
   @GetMapping("/api/v1/conversations/{id}/messages")
   public ResponseEntity<
           com.example.chat_app_backend.payload.response.CursorPageResponse<MessageResponse>>
