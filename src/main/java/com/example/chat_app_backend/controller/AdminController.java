@@ -35,13 +35,13 @@ public class AdminController {
 
   @Operation(summary = "Get Stats Overview")
   @GetMapping("/stats/overview")
-  public ResponseEntity<?> getStatsOverview() {
+  public ResponseEntity<java.util.Map<String, Object>> getStatsOverview() {
     return adminService.getStatsOverview();
   }
 
   @Operation(summary = "List and filter users")
   @GetMapping("/users")
-  public ResponseEntity<?> getUsers(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.User>> getUsers(
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "0") int cursor,
@@ -51,13 +51,13 @@ public class AdminController {
 
   @Operation(summary = "Get User by ID")
   @GetMapping("/users/{id}")
-  public ResponseEntity<?> getUserById(@PathVariable UUID id) {
+  public ResponseEntity<java.util.Map<String, Object>> getUserById(@PathVariable UUID id) {
     return adminService.getUserById(id);
   }
 
   @Operation(summary = "Update user status (ACTIVE, DISABLED, BANNED)")
   @PatchMapping("/users/{id}/status")
-  public ResponseEntity<?> updateUserStatus(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> updateUserStatus(
       @PathVariable UUID id,
       @RequestBody com.example.chat_app_backend.payload.request.UpdateUserStatusRequest request) {
     return adminService.updateUserStatus(id, request);
@@ -65,19 +65,19 @@ public class AdminController {
 
   @Operation(summary = "Force logout user")
   @PostMapping("/users/{id}/force-logout")
-  public ResponseEntity<?> forceLogout(@PathVariable UUID id) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> forceLogout(@PathVariable UUID id) {
     return adminService.forceLogout(id);
   }
 
   @Operation(summary = "Soft delete and anonymize user")
   @DeleteMapping("/users/{id}")
-  public ResponseEntity<?> deleteUser(@PathVariable UUID id) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> deleteUser(@PathVariable UUID id) {
     return adminService.deleteUser(id);
   }
 
   @Operation(summary = "Get conversation metadata")
   @GetMapping("/conversations")
-  public ResponseEntity<?> getConversations(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.chat.conversation.Conversation>> getConversations(
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "0") int cursor) {
@@ -86,7 +86,7 @@ public class AdminController {
 
   @Operation(summary = "Update conversation status")
   @PatchMapping("/conversations/{id}/status")
-  public ResponseEntity<?> updateConversationStatus(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> updateConversationStatus(
       @PathVariable UUID id,
       @RequestBody
           com.example.chat_app_backend.payload.request.UpdateConversationStatusRequest request) {
@@ -95,20 +95,20 @@ public class AdminController {
 
   @Operation(summary = "Moderation queue")
   @GetMapping("/reports")
-  public ResponseEntity<?> getReports(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.Report>> getReports(
       @RequestParam(required = false) String status, @RequestParam(defaultValue = "0") int cursor) {
     return adminService.getReports(status, cursor);
   }
 
   @Operation(summary = "Report detail")
   @GetMapping("/reports/{id}")
-  public ResponseEntity<?> getReportDetail(@PathVariable UUID id) {
+  public ResponseEntity<com.example.chat_app_backend.model.Report> getReportDetail(@PathVariable UUID id) {
     return adminService.getReportDetail(id);
   }
 
   @Operation(summary = "Resolve report")
   @PatchMapping("/reports/{id}")
-  public ResponseEntity<?> resolveReport(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> resolveReport(
       @PathVariable UUID id,
       @RequestBody com.example.chat_app_backend.payload.request.ResolveReportRequest request) {
     return adminService.resolveReport(id, request);
@@ -116,13 +116,13 @@ public class AdminController {
 
   @Operation(summary = "Remove a reported message")
   @DeleteMapping("/messages/{id}")
-  public ResponseEntity<?> deleteMessage(@PathVariable UUID id, @RequestParam String reason) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> deleteMessage(@PathVariable UUID id, @RequestParam String reason) {
     return adminService.deleteMessage(id, reason);
   }
 
   @Operation(summary = "Browse audit trail")
   @GetMapping("/audit-logs")
-  public ResponseEntity<?> getAuditLogs(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.AuditLog>> getAuditLogs(
       @RequestParam(required = false) UUID actor,
       @RequestParam(required = false) String action,
       @RequestParam(required = false) String from,
@@ -133,7 +133,7 @@ public class AdminController {
 
   @Operation(summary = "Transfer Admin Ownership")
   @PostMapping("/transfer-ownership")
-  public ResponseEntity<?> transferOwnership(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> transferOwnership(
       @RequestBody com.example.chat_app_backend.payload.request.TransferOwnershipRequest request) {
     return adminService.transferOwnership(request);
   }

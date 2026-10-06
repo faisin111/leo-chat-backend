@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class MediaService {
 
-  public ResponseEntity<?> presign(UUID userId, MediaPresignRequest request) {
+  public ResponseEntity<Map<String, Object>> presign(UUID userId, MediaPresignRequest request) {
     // Scaffold response
     String storageKey = UUID.randomUUID().toString() + "-" + userId.toString() + ".tmp";
     String uploadUrl = "https://mock-storage.com/upload/" + storageKey;
@@ -21,7 +21,7 @@ public class MediaService {
             "uploadUrl", uploadUrl));
   }
 
-  public ResponseEntity<?> confirm(UUID userId, MediaConfirmRequest request) {
+  public ResponseEntity<Map<String, Object>> confirm(UUID userId, MediaConfirmRequest request) {
     // Scaffold response
     String finalUrl = "https://mock-storage.com/media/" + request.storageKey();
     UUID attachmentId = UUID.randomUUID();

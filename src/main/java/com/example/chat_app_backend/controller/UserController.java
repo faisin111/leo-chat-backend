@@ -33,7 +33,7 @@ public class UserController {
       summary = "Get Current User",
       description = "Retrieves the profile of the currently authenticated user.")
   @GetMapping("/me")
-  public ResponseEntity<?> getCurrentUser() {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.UserProfileResponse> getCurrentUser() {
     return userService.getCurrentUser();
   }
 
@@ -41,7 +41,7 @@ public class UserController {
       summary = "Get User by ID",
       description = "Retrieves the public profile of a specific user by their UUID.")
   @GetMapping("/{id}")
-  public ResponseEntity<?> getUserById(@PathVariable UUID id) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.UserProfileResponse> getUserById(@PathVariable UUID id) {
     return userService.getUserById(id);
   }
 
@@ -49,7 +49,7 @@ public class UserController {
       summary = "Update Profile",
       description = "Allows the current user to update their phone number, bio, age, and region.")
   @PatchMapping("/me/profile")
-  public ResponseEntity<?> updateProfile(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> updateProfile(
       @RequestBody com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
     return userService.updateProfile(request);
   }
@@ -58,13 +58,13 @@ public class UserController {
       summary = "Deactivate Account",
       description = "Deactivate own account (rejected for the admin)")
   @DeleteMapping("/me")
-  public ResponseEntity<?> deactivateAccount() {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> deactivateAccount() {
     return userService.deactivateCurrentUser();
   }
 
   @Operation(summary = "Search users")
   @GetMapping("/search")
-  public ResponseEntity<?> searchUsers(
+  public ResponseEntity<java.util.List<com.example.chat_app_backend.payload.response.UserSearchResponse>> searchUsers(
       @RequestParam String q,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
@@ -73,26 +73,24 @@ public class UserController {
 
   @Operation(summary = "Get user presence")
   @GetMapping("/presence")
-  public ResponseEntity<?> getPresence(@RequestParam java.util.List<UUID> ids) {
+  public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getPresence(@RequestParam java.util.List<UUID> ids) {
     return userService.getPresence(ids);
   }
 
   @Operation(summary = "Get active sessions")
   @GetMapping("/me/sessions")
-  public ResponseEntity<?> getSessions(
+  public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getSessions(
       @AuthenticationPrincipal
           com.example.chat_app_backend.security.services.UserDetailsImpl userDetails) {
-    // Simple scaffold for now
-    return ResponseEntity.ok(java.util.List.of());
+    return userService.getSessions(userDetails.getId());
   }
 
   @Operation(summary = "Logout specific session")
   @DeleteMapping("/me/sessions/{sessionId}")
-  public ResponseEntity<?> logoutSession(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> logoutSession(
       @AuthenticationPrincipal
           com.example.chat_app_backend.security.services.UserDetailsImpl userDetails,
       @PathVariable UUID sessionId) {
-    // Simple scaffold for now
-    return ResponseEntity.ok().build();
+    return userService.logoutSession(userDetails.getId(), sessionId);
   }
 }

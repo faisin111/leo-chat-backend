@@ -61,7 +61,7 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = ApiError.class)))
       })
   @PostMapping("/login")
-  public ResponseEntity<?> authenticateUser(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.UserInfoResponse> authenticateUser(
       @Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
     String deviceInfo = request.getHeader(HEADER_USER_AGENT);
     TokenResponse tokenResponse = authService.login(loginRequest, deviceInfo);
@@ -107,26 +107,17 @@ public class AuthController {
       description = "Rotate HttpOnly cookies using the refresh cookie.")
   @ApiResponses(
       value = {
-        @ApiResponse(responseCode = "200", description = "Tokens successfully rotated"),
+        @ApiResponse(responseCode = "200", description = "Tokens successfully rotated", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.UserInfoResponse.class))),
         @ApiResponse(
             responseCode = "401",
             description = "Invalid/expired refresh cookie",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
       })
   @PostMapping("/refresh")
-  public ResponseEntity<?> refreshtoken(HttpServletRequest request) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.UserInfoResponse> refreshtoken(HttpServletRequest request) {
     String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
     if (refreshToken == null || refreshToken.isEmpty()) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(
-              new ApiError(
-                  java.time.Instant.now(),
-                  401,
-                  "UNAUTHORIZED",
-                  "Refresh Token is empty!",
-                  "/api/v1/auth/refresh",
-                  java.util.UUID.randomUUID().toString(),
-                  java.util.List.of()));
+      throw new com.example.chat_app_backend.exception.UnauthorizedException("Refresh Token is empty!");
     }
 
     String deviceInfo = request.getHeader(HEADER_USER_AGENT);

@@ -20,7 +20,7 @@ public class UserService {
 
   @Autowired private UserRepository userRepository;
 
-  public ResponseEntity<?> getUserById(UUID id) {
+  public ResponseEntity<UserProfileResponse> getUserById(UUID id) {
     Optional<User> userOpt = userRepository.findById(id);
 
     if (userOpt.isEmpty()) {
@@ -44,13 +44,13 @@ public class UserService {
     return ResponseEntity.ok(profile);
   }
 
-  public ResponseEntity<?> getCurrentUser() {
+  public ResponseEntity<UserProfileResponse> getCurrentUser() {
     UserDetailsImpl userDetails =
         (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     return getUserById(userDetails.getId());
   }
 
-  public ResponseEntity<?> updateProfile(
+  public ResponseEntity<MessageResponse> updateProfile(
       com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
     UserDetailsImpl userDetails =
         (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -81,7 +81,7 @@ public class UserService {
   }
 
   @Transactional
-  public ResponseEntity<?> deactivateCurrentUser() {
+  public ResponseEntity<MessageResponse> deactivateCurrentUser() {
     UserDetailsImpl userDetails =
         (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     User user = userRepository.findById(userDetails.getId()).orElse(null);
@@ -95,11 +95,10 @@ public class UserService {
     user.setStatus("DISABLED");
     userRepository.save(user);
 
-    // Return 204 or a message
     return ResponseEntity.ok(new MessageResponse("Account deactivated successfully"));
   }
 
-  public ResponseEntity<?> searchUsers(String query, int page, int size) {
+  public ResponseEntity<List<com.example.chat_app_backend.payload.response.UserSearchResponse>> searchUsers(String query, int page, int size) {
     if (query == null || query.trim().length() < 2) {
       throw new com.example.chat_app_backend.exception.BusinessRuleException(
           "Search query must be at least 2 characters");
@@ -126,7 +125,7 @@ public class UserService {
     return ResponseEntity.ok(responses);
   }
 
-  public ResponseEntity<?> getPresence(List<UUID> ids) {
+  public ResponseEntity<List<java.util.Map<String, Object>>> getPresence(List<UUID> ids) {
     List<User> users = userRepository.findAllById(ids);
     List<java.util.Map<String, Object>> presenceList =
         users.stream()
@@ -141,9 +140,10 @@ public class UserService {
             .toList();
     return ResponseEntity.ok(presenceList);
   }
+  
   @Autowired private com.example.chat_app_backend.auth.repo.RefreshTokenRepository refreshTokenRepository;
 
-  public ResponseEntity<?> getSessions(UUID userId) {
+  public ResponseEntity<List<java.util.Map<String, Object>>> getSessions(UUID userId) {
     List<com.example.chat_app_backend.auth.model.RefreshToken> tokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(userId);
     List<java.util.Map<String, Object>> sessions = tokens.stream().map(t -> {
         java.util.Map<String, Object> map = new java.util.HashMap<>();
@@ -157,7 +157,7 @@ public class UserService {
   }
 
   @Transactional
-  public ResponseEntity<?> logoutSession(UUID userId, UUID sessionId) {
+  public ResponseEntity<MessageResponse> logoutSession(UUID userId, UUID sessionId) {
     Optional<com.example.chat_app_backend.auth.model.RefreshToken> tokenOpt = refreshTokenRepository.findById(sessionId);
     if (tokenOpt.isPresent()) {
         com.example.chat_app_backend.auth.model.RefreshToken token = tokenOpt.get();

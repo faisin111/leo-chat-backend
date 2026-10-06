@@ -34,10 +34,11 @@ public class AdminService {
   @Autowired private AuthService authService;
   @Autowired private PasswordEncoder passwordEncoder;
 
-  public ResponseEntity<?> getStatsOverview() {
+  public ResponseEntity<java.util.Map<String, Object>> getStatsOverview() {
     long totalUsers = userRepository.count();
     long totalConversations = conversationRepository.count();
     long totalReports = reportRepository.count();
+
     return ResponseEntity.ok(java.util.Map.of(
         "totalUsers", totalUsers,
         "totalConversations", totalConversations,
@@ -45,7 +46,7 @@ public class AdminService {
     ));
   }
 
-  public ResponseEntity<?> getUsers(String q, String status, int cursor, int limit) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.User>> getUsers(String q, String status, int cursor, int limit) {
     PageRequest pageRequest = PageRequest.of(cursor, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<User> usersPage;
     if (q != null && !q.isBlank()) {
@@ -59,7 +60,7 @@ public class AdminService {
             usersPage.getContent(), usersPage.hasNext(), usersPage.hasNext() ? String.valueOf(cursor + 1) : null));
   }
 
-  public ResponseEntity<?> getUserById(UUID id) {
+  public ResponseEntity<java.util.Map<String, Object>> getUserById(UUID id) {
     Optional<User> userOpt = userRepository.findById(id);
     if (userOpt.isEmpty()) {
       throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
@@ -76,7 +77,7 @@ public class AdminService {
   }
 
   @Transactional
-  public ResponseEntity<?> updateUserStatus(
+  public ResponseEntity<MessageResponse> updateUserStatus(
       UUID id, com.example.chat_app_backend.payload.request.UpdateUserStatusRequest request) {
     Optional<User> userOpt = userRepository.findById(id);
     if (userOpt.isEmpty()) {
@@ -95,13 +96,13 @@ public class AdminService {
   }
 
   @Transactional
-  public ResponseEntity<?> forceLogout(UUID id) {
+  public ResponseEntity<MessageResponse> forceLogout(UUID id) {
     authService.logoutAll(id);
     return ResponseEntity.ok(new MessageResponse("User forcefully logged out from all sessions."));
   }
 
   @Transactional
-  public ResponseEntity<?> deleteUser(UUID id) {
+  public ResponseEntity<MessageResponse> deleteUser(UUID id) {
     Optional<User> userOpt = userRepository.findById(id);
     if (userOpt.isEmpty()) {
       throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
@@ -128,7 +129,7 @@ public class AdminService {
         new MessageResponse("User anonymized and softly deleted successfully."));
   }
 
-  public ResponseEntity<?> getConversations(String q, String status, int cursor) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<Conversation>> getConversations(String q, String status, int cursor) {
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<Conversation> page = conversationRepository.findAll(pageRequest);
     return ResponseEntity.ok(
@@ -137,7 +138,7 @@ public class AdminService {
   }
 
   @Transactional
-  public ResponseEntity<?> updateConversationStatus(
+  public ResponseEntity<MessageResponse> updateConversationStatus(
       UUID id,
       com.example.chat_app_backend.payload.request.UpdateConversationStatusRequest request) {
     Conversation conv = conversationRepository.findById(id)
@@ -147,7 +148,7 @@ public class AdminService {
     return ResponseEntity.ok(new MessageResponse("Conversation status updated successfully."));
   }
 
-  public ResponseEntity<?> getReports(String status, int cursor) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<Report>> getReports(String status, int cursor) {
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<Report> page;
     if (status != null && !status.isBlank()) {
@@ -160,14 +161,14 @@ public class AdminService {
             page.getContent(), page.hasNext(), page.hasNext() ? String.valueOf(cursor + 1) : null));
   }
 
-  public ResponseEntity<?> getReportDetail(UUID id) {
+  public ResponseEntity<Report> getReportDetail(UUID id) {
     Report report = reportRepository.findById(id)
         .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Report not found"));
     return ResponseEntity.ok(report);
   }
 
   @Transactional
-  public ResponseEntity<?> resolveReport(
+  public ResponseEntity<MessageResponse> resolveReport(
       UUID id, com.example.chat_app_backend.payload.request.ResolveReportRequest request) {
     Report report = reportRepository.findById(id)
         .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Report not found"));
@@ -181,7 +182,7 @@ public class AdminService {
   }
 
   @Transactional
-  public ResponseEntity<?> deleteMessage(UUID id, String reason) {
+  public ResponseEntity<MessageResponse> deleteMessage(UUID id, String reason) {
     Message message = messageRepository.findById(id)
         .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Message not found"));
     
@@ -194,7 +195,7 @@ public class AdminService {
     return ResponseEntity.ok(new MessageResponse("Message deleted successfully."));
   }
 
-  public ResponseEntity<?> getAuditLogs(
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<AuditLog>> getAuditLogs(
       UUID actor, String action, String from, String to, int cursor) {
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<AuditLog> page;
@@ -215,7 +216,7 @@ public class AdminService {
   }
 
   @Transactional
-  public ResponseEntity<?> transferOwnership(
+  public ResponseEntity<MessageResponse> transferOwnership(
       com.example.chat_app_backend.payload.request.TransferOwnershipRequest request) {
       
       User targetUser = userRepository.findById(request.targetUserId())

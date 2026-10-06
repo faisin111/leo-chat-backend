@@ -29,7 +29,7 @@ public class MediaController {
 
   @Operation(summary = "Get pre-signed upload URL")
   @PostMapping("/presign")
-  public ResponseEntity<?> presign(
+  public ResponseEntity<java.util.Map<String, Object>> presign(
       @AuthenticationPrincipal
           com.example.chat_app_backend.security.services.UserDetailsImpl userDetails,
       @Valid @RequestBody MediaPresignRequest request) {
@@ -38,7 +38,7 @@ public class MediaController {
 
   @Operation(summary = "Confirm upload")
   @PostMapping("/confirm")
-  public ResponseEntity<?> confirm(
+  public ResponseEntity<java.util.Map<String, Object>> confirm(
       @AuthenticationPrincipal
           com.example.chat_app_backend.security.services.UserDetailsImpl userDetails,
       @Valid @RequestBody MediaConfirmRequest request) {
