@@ -38,7 +38,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Get message history")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/api/v1/conversations/{id}/messages")
   public ResponseEntity<
           com.example.chat_app_backend.payload.response.CursorPageResponse<MessageResponse>>
@@ -53,7 +53,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Send HTTP Message")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/api/v1/conversations/{id}/messages")
   public ResponseEntity<MessageResponse> sendMessage(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -75,7 +75,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Single message")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/api/v1/messages/{id}")
   public ResponseEntity<MessageResponse> getMessage(
       @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
@@ -83,7 +83,7 @@ public class MessageController {
   }
 
   @Operation(summary = "Edit message")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = MessageResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PatchMapping("/api/v1/messages/{id}")
   public ResponseEntity<MessageResponse> editMessage(
       @AuthenticationPrincipal UserDetailsImpl user,

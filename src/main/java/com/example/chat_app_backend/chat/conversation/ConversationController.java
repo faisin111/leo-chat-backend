@@ -45,7 +45,7 @@ public class ConversationController {
   @Operation(
       summary = "Get user conversations",
       description = "Returns all conversations sorted by latest activity")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.CursorPageResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping
   public ResponseEntity<
           com.example.chat_app_backend.payload.response.CursorPageResponse<ConversationResponse>>
@@ -59,7 +59,7 @@ public class ConversationController {
   @Operation(
       summary = "Start Direct Message",
       description = "Get or create a 1-to-1 conversation with another user")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = ConversationResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/direct")
   public ResponseEntity<ConversationResponse> createDirectChat(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -69,7 +69,7 @@ public class ConversationController {
   }
 
   @Operation(summary = "Get conversation details")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = ConversationResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/{id}")
   public ResponseEntity<ConversationResponse> getConversation(
       @AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
@@ -77,14 +77,14 @@ public class ConversationController {
   }
 
   @Operation(summary = "Get unread count")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/unread-count")
   public ResponseEntity<com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse> getUnreadCount(@AuthenticationPrincipal UserDetailsImpl user) {
     return ResponseEntity.ok(conversationService.getUnreadCount(user.getId()));
   }
 
   @Operation(summary = "Create group chat")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = ConversationResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/group")
   public ResponseEntity<ConversationResponse> createGroupChat(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -95,7 +95,7 @@ public class ConversationController {
   }
 
   @Operation(summary = "Update group chat")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = ConversationResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PatchMapping("/{id}")
   public ResponseEntity<ConversationResponse> updateGroupChat(
       @AuthenticationPrincipal UserDetailsImpl user,
@@ -106,7 +106,7 @@ public class ConversationController {
   }
 
   @Operation(summary = "Get conversation members")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.List.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/{id}/members")
   public ResponseEntity<
           List<com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse>>

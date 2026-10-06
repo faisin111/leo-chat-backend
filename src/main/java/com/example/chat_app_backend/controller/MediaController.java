@@ -33,7 +33,7 @@ public class MediaController {
   @Autowired private MediaService mediaService;
 
   @Operation(summary = "Get pre-signed upload URL")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.Map.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/presign")
   public ResponseEntity<java.util.Map<String, Object>> presign(
       @AuthenticationPrincipal
@@ -43,7 +43,7 @@ public class MediaController {
   }
 
   @Operation(summary = "Confirm upload")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = java.util.Map.class)))
+  @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/confirm")
   public ResponseEntity<java.util.Map<String, Object>> confirm(
       @AuthenticationPrincipal
