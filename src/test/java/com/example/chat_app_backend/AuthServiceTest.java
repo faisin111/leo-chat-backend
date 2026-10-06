@@ -23,8 +23,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class AuthServiceTest {
 
   @Mock private UserRepository userRepository;
-
   @Mock private PasswordEncoder passwordEncoder;
+  @Mock private com.example.chat_app_backend.auth.repo.VerificationTokenRepository verificationTokenRepository;
+  @Mock private com.example.chat_app_backend.service.EmailService emailService;
 
   @InjectMocks private AuthService authService;
 

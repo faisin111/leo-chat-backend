@@ -10,5 +10,7 @@ import org.springframework.stereotype.Repository;
 public interface VerificationTokenRepository extends JpaRepository<VerificationToken, UUID> {
   Optional<VerificationToken> findByTokenAndType(String token, String type);
 
+  @org.springframework.transaction.annotation.Transactional
+  @org.springframework.data.jpa.repository.Modifying
   void deleteByUserIdAndType(UUID userId, String type);
 }
