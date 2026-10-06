@@ -56,7 +56,7 @@ public class ConversationService {
                   return c;
                 });
 
-    return mapToResponse(conv);
+    return mapToResponse(conv, userId1);
   }
 
   @Transactional(readOnly = true)
@@ -67,7 +67,7 @@ public class ConversationService {
     org.springframework.data.domain.Page<Conversation> pageResult = conversationRepository.findByUserIdOrderByLastMessageAtDesc(userId, pageable);
 
     List<ConversationResponse> responses = pageResult.getContent().stream()
-        .map(this::mapToResponse)
+        .map(c -> mapToResponse(c, userId))
         .collect(Collectors.toList());
 
     boolean hasMore = pageResult.hasNext();
@@ -76,7 +76,30 @@ public class ConversationService {
         responses, hasMore, nextCursor);
   }
 
-  private ConversationResponse mapToResponse(Conversation c) {
+
+  private ConversationResponse mapToResponse(Conversation c, UUID currentUserId) {
+    String targetUsername = null;
+    String targetDisplayName = null;
+    String targetAvatarUrl = null;
+
+    if (c.getType() == ConversationType.DIRECT && c.getDirectKey() != null) {
+      String[] parts = c.getDirectKey().split(":");
+      if (parts.length == 2) {
+        UUID id1 = UUID.fromString(parts[0]);
+        UUID id2 = UUID.fromString(parts[1]);
+        UUID targetUserId = id1.equals(currentUserId) ? id2 : id1;
+        var targetUserOpt = userRepository.findById(targetUserId);
+        if (targetUserOpt.isPresent()) {
+          var targetUser = targetUserOpt.get();
+          targetUsername = targetUser.getUsername();
+          targetDisplayName = targetUser.getDisplayName();
+          if (targetUser.getProfile() != null) {
+            targetAvatarUrl = targetUser.getProfile().getProfilePictureUrl();
+          }
+        }
+      }
+    }
+
     return new ConversationResponse(
         c.getId(),
         c.getType().name(),
@@ -87,8 +110,12 @@ public class ConversationService {
         c.getLastSeq(),
         c.getLastMessageAt(),
         c.getCreatedAt(),
-        c.getStatus());
+        c.getStatus(),
+        targetUsername,
+        targetDisplayName,
+        targetAvatarUrl);
   }
+
 
   @Transactional(readOnly = true)
   public ConversationResponse getConversation(UUID userId, UUID conversationId) {
@@ -100,7 +127,7 @@ public class ConversationService {
     memberRepository
         .findById(new ConversationMemberId(conversationId, userId))
         .orElseThrow(() -> new RuntimeException("Not a member"));
-    return mapToResponse(conv);
+    return mapToResponse(conv, userId);
   }
 
   @Transactional(readOnly = true)
@@ -134,7 +161,7 @@ public class ConversationService {
       memberRepository.save(m2);
     }
 
-    return mapToResponse(c);
+    return mapToResponse(c, userId);
   }
 
   @Transactional
@@ -153,7 +180,7 @@ public class ConversationService {
 
     if (request.title() != null) c.setTitle(request.title());
     if (request.avatarUrl() != null) c.setAvatarUrl(request.avatarUrl());
-    return mapToResponse(conversationRepository.save(c));
+    return mapToResponse(conversationRepository.save(c), userId);
   }
 
   @Transactional(readOnly = true)

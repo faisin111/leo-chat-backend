@@ -13,4 +13,7 @@ public record ConversationResponse(
     long lastSeq,
     Instant lastMessageAt,
     Instant createdAt,
-    String status) {}
+    String status,
+    String targetUsername,
+    String targetDisplayName,
+    String targetAvatarUrl) {}
