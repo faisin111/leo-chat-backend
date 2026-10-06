@@ -119,7 +119,11 @@ public class UserService {
                         user.getUsername(),
                         user.getDisplayName(),
                         user.getLastSeenAt(),
-                        user.getStatus()))
+                        user.getStatus(),
+                        user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
+                        user.getProfile() != null ? user.getProfile().getBio() : null,
+                        user.getProfile() != null ? user.getProfile().getRegion() : null,
+                        user.getProfile() != null ? user.getProfile().getAge() : null))
             .toList();
 
     return ResponseEntity.ok(responses);
