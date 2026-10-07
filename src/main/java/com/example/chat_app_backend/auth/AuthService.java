@@ -31,8 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthService {
 
-  @org.springframework.beans.factory.annotation.Autowired
-  private com.example.chat_app_backend.service.EmailService emailService;
+  private final com.example.chat_app_backend.service.EmailService emailService;
 
   private static final String ADMIN_LOWER = "admin";
   private static final String ROLE_ADMIN_LOWER = "role_admin";
@@ -55,13 +54,15 @@ public class AuthService {
       AuthenticationManager authenticationManager,
       JwtUtils jwtUtils,
       RefreshTokenRepository refreshTokenRepository,
-      VerificationTokenRepository verificationTokenRepository) {
+      VerificationTokenRepository verificationTokenRepository,
+      com.example.chat_app_backend.service.EmailService emailService) {
     this.userRepository = userRepository;
     this.encoder = encoder;
     this.authenticationManager = authenticationManager;
     this.jwtUtils = jwtUtils;
     this.refreshTokenRepository = refreshTokenRepository;
     this.verificationTokenRepository = verificationTokenRepository;
+    this.emailService = emailService;
   }
 
   @Transactional

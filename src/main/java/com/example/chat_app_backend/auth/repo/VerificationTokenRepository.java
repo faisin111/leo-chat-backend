@@ -11,6 +11,7 @@ public interface VerificationTokenRepository extends JpaRepository<VerificationT
   Optional<VerificationToken> findByTokenAndType(String token, String type);
 
   @org.springframework.transaction.annotation.Transactional
-  @org.springframework.data.jpa.repository.Modifying
-  void deleteByUserIdAndType(UUID userId, String type);
+    @org.springframework.data.jpa.repository.Modifying
+  @org.springframework.data.jpa.repository.Query("DELETE FROM VerificationToken v WHERE v.userId = :userId AND v.type = :type")
+  void deleteByUserIdAndType(@org.springframework.data.repository.query.Param("userId") UUID userId, @org.springframework.data.repository.query.Param("type") String type);
 }
