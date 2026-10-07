@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 @Service
 public class MessageService {
@@ -19,14 +20,17 @@ public class MessageService {
   private final MessageRepository messageRepository;
   private final ConversationRepository conversationRepository;
   private final ConversationMemberRepository memberRepository;
+  private final SimpMessagingTemplate messagingTemplate;
 
   public MessageService(
       MessageRepository messageRepository,
       ConversationRepository conversationRepository,
-      ConversationMemberRepository memberRepository) {
+      ConversationMemberRepository memberRepository,
+      SimpMessagingTemplate messagingTemplate) {
     this.messageRepository = messageRepository;
     this.conversationRepository = conversationRepository;
     this.memberRepository = memberRepository;
+    this.messagingTemplate = messagingTemplate;
   }
 
   @org.springframework.transaction.annotation.Transactional
@@ -64,7 +68,9 @@ public class MessageService {
     msg.setReplyToId(request.replyToId());
 
     msg = messageRepository.save(msg);
-    return mapToResponse(msg);
+    MessageResponse response = mapToResponse(msg);
+    messagingTemplate.convertAndSend("/topic/conversations." + convId, response);
+    return response;
   }
 
   @org.springframework.transaction.annotation.Transactional(readOnly = true)

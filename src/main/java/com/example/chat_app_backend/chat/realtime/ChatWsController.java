@@ -34,8 +34,7 @@ public class ChatWsController {
     MessageResponse response =
         messageService.sendMessage(user.getId(), request.conversationId(), request);
 
-    // Broadcast to conversation topic
-    messagingTemplate.convertAndSend("/topic/conversations." + request.conversationId(), response);
+    // Broadcasting is now automatically handled inside messageService.sendMessage()
 
     // Send ACK back to sender
     messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/acks", response);
