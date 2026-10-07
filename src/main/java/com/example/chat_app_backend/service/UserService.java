@@ -39,7 +39,8 @@ public class UserService {
             user.getProfile() != null ? user.getProfile().getPhoneNumber() : null,
             user.getProfile() != null ? user.getProfile().getBio() : null,
             user.getProfile() != null ? user.getProfile().getAge() : null,
-            user.getProfile() != null ? user.getProfile().getRegion() : null);
+            user.getProfile() != null ? user.getProfile().getRegion() : null,
+            user.isEmailVerified());
 
     return ResponseEntity.ok(profile);
   }

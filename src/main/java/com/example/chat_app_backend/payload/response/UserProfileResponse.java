@@ -13,6 +13,7 @@ public class UserProfileResponse {
   private String bio;
   private Integer age;
   private String region;
+  private boolean isEmailVerified;
 
   public UserProfileResponse(
       UUID id,
@@ -23,7 +24,8 @@ public class UserProfileResponse {
       String phoneNumber,
       String bio,
       Integer age,
-      String region) {
+      String region,
+      boolean isEmailVerified) {
     this.id = id;
     this.username = username;
     this.email = email;
@@ -33,6 +35,7 @@ public class UserProfileResponse {
     this.bio = bio;
     this.age = age;
     this.region = region;
+    this.isEmailVerified = isEmailVerified;
   }
 
   public UUID getId() {
@@ -67,7 +70,11 @@ public class UserProfileResponse {
     return age;
   }
 
-  public String getRegion() {
+public String getRegion() {
     return region;
+  }
+
+  public boolean isEmailVerified() {
+    return isEmailVerified;
   }
 }
