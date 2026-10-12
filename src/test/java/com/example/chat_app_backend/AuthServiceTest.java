@@ -22,6 +22,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @ExtendWith(MockitoExtension.class)
 public class AuthServiceTest {
 
+  @Mock private com.example.chat_app_backend.security.jwt.JwtUtils jwtUtils;
+  @Mock private org.springframework.security.authentication.AuthenticationManager authenticationManager;
   @Mock private UserRepository userRepository;
   @Mock private PasswordEncoder passwordEncoder;
   @Mock private com.example.chat_app_backend.auth.repo.VerificationTokenRepository verificationTokenRepository;
@@ -60,5 +62,35 @@ public class AuthServiceTest {
     // Assert
     assertEquals("alice", response.username());
     assertEquals(AppConstants.ROLE_ADMIN, response.role());
+  }
+
+  @Test
+  void refresh_validStatelessToken_returnsNewTokensWithoutDbTokenAccess() {
+    String rawToken = "valid-refresh-jwt";
+    User user = new User("alice", "alice@example.com", "pass", AppConstants.ROLE_USER, "Alice");
+    user.setId(UUID.randomUUID());
+
+    when(jwtUtils.validateRefreshToken(rawToken)).thenReturn(true);
+    when(jwtUtils.getUserNameFromJwtToken(rawToken)).thenReturn("alice");
+    when(userRepository.findByUsername("alice")).thenReturn(java.util.Optional.of(user));
+    when(jwtUtils.generateTokenFromUsername("alice")).thenReturn("new-access-jwt");
+    when(jwtUtils.generateRefreshToken("alice")).thenReturn("new-refresh-jwt");
+
+    var response = authService.refresh(rawToken, "test-device");
+
+    assertNotNull(response);
+    assertEquals("new-access-jwt", response.accessToken());
+    assertEquals("new-refresh-jwt", response.refreshToken());
+    assertEquals("alice", response.username());
+  }
+
+  @Test
+  void refresh_invalidToken_throwsUnauthorizedException() {
+    String badToken = "invalid-token";
+    when(jwtUtils.validateRefreshToken(badToken)).thenReturn(false);
+
+    assertThrows(
+        com.example.chat_app_backend.exception.UnauthorizedException.class,
+        () -> authService.refresh(badToken, "test-device"));
   }
 }

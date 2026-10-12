@@ -33,8 +33,14 @@ public class WsAuthInterceptor implements ChannelInterceptor {
       // usually passes tokens in headers (e.g., native apps) or via query params.
       // For now, check standard Authorization header if provided by client.
       String authHeader = accessor.getFirstNativeHeader("Authorization");
-      if (authHeader != null && authHeader.startsWith("Bearer ")) {
-        String token = authHeader.substring(7);
+      if (authHeader == null) {
+        authHeader = accessor.getFirstNativeHeader("token");
+      }
+      if (authHeader == null) {
+        authHeader = accessor.getFirstNativeHeader("access_token");
+      }
+      if (authHeader != null && !authHeader.isBlank()) {
+        String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : authHeader.trim();
         if (jwtUtils.validateJwtToken(token)) {
           String username = jwtUtils.getUserNameFromJwtToken(token);
           UserDetails userDetails = userDetailsService.loadUserByUsername(username);

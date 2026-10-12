@@ -23,6 +23,9 @@ public class JwtUtils {
   @Value("${app.jwt.expirationMs}")
   private int jwtExpirationMs;
 
+  @Value("${app.jwt.jwtRefreshExpirationMs:604800000}")
+  private long jwtRefreshExpirationMs;
+
   @Value("${app.jwt.jwtCookieName:leo_chat_jwt}")
   private String jwtCookie;
 
@@ -50,7 +53,7 @@ public class JwtUtils {
   public ResponseCookie generateJwtCookie(String jwt) {
     return ResponseCookie.from(jwtCookie, jwt)
         .path("/api")
-        .maxAge(24 * 60 * 60)
+        .maxAge(jwtExpirationMs / 1000)
         .httpOnly(true)
         .secure(false)
         .sameSite("Lax")
@@ -60,7 +63,7 @@ public class JwtUtils {
   public ResponseCookie generateRefreshJwtCookie(String refreshToken) {
     return ResponseCookie.from(jwtRefreshCookie, refreshToken)
         .path("/api/v1/auth/refresh")
-        .maxAge(24 * 60 * 60)
+        .maxAge(jwtRefreshExpirationMs / 1000)
         .httpOnly(true)
         .secure(false)
         .sameSite("Lax")
@@ -86,8 +89,19 @@ public class JwtUtils {
   public String generateTokenFromUsername(String username) {
     return Jwts.builder()
         .setSubject(username)
+        .claim("type", "access")
         .setIssuedAt(new Date())
-        .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+        .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
+        .signWith(key(), SignatureAlgorithm.HS256)
+        .compact();
+  }
+
+  public String generateRefreshToken(String username) {
+    return Jwts.builder()
+        .setSubject(username)
+        .claim("type", "refresh")
+        .setIssuedAt(new Date())
+        .setExpiration(new Date(System.currentTimeMillis() + jwtRefreshExpirationMs))
         .signWith(key(), SignatureAlgorithm.HS256)
         .compact();
   }
@@ -107,8 +121,21 @@ public class JwtUtils {
 
   public boolean validateJwtToken(String authToken) {
     try {
-      Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);
-      return true;
+      var claims =
+          Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken).getBody();
+      Object type = claims.get("type");
+      return type == null || "access".equals(type);
+    } catch (Exception e) {
+      // Log exception
+    }
+    return false;
+  }
+
+  public boolean validateRefreshToken(String authToken) {
+    try {
+      var claims =
+          Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken).getBody();
+      return "refresh".equals(claims.get("type"));
     } catch (Exception e) {
       // Log exception
     }

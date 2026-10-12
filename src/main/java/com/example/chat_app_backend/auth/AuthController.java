@@ -111,8 +111,13 @@ public class AuthController {
       })
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/refresh")
-  public ResponseEntity<com.example.chat_app_backend.payload.response.UserInfoResponse> refreshtoken(HttpServletRequest request) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.UserInfoResponse> refreshtoken(
+      @RequestBody(required = false) com.example.chat_app_backend.auth.dto.TokenRefreshRequest refreshRequest,
+      HttpServletRequest request) {
     String refreshToken = jwtUtils.getJwtRefreshFromCookies(request);
+    if (refreshToken == null && refreshRequest != null) {
+      refreshToken = refreshRequest.refreshToken();
+    }
     if (refreshToken == null || refreshToken.isEmpty()) {
       throw new com.example.chat_app_backend.exception.UnauthorizedException("Refresh Token is empty!");
     }

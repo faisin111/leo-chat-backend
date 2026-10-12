@@ -146,31 +146,13 @@ public class UserService {
     return ResponseEntity.ok(presenceList);
   }
   
-  @Autowired private com.example.chat_app_backend.auth.repo.RefreshTokenRepository refreshTokenRepository;
-
   public ResponseEntity<List<java.util.Map<String, Object>>> getSessions(UUID userId) {
-    List<com.example.chat_app_backend.auth.model.RefreshToken> tokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(userId);
-    List<java.util.Map<String, Object>> sessions = tokens.stream().map(t -> {
-        java.util.Map<String, Object> map = new java.util.HashMap<>();
-        map.put("sessionId", t.getId());
-        map.put("deviceInfo", t.getDeviceInfo());
-        map.put("createdAt", t.getCreatedAt());
-        map.put("lastUsedAt", t.getUsedAt());
-        return map;
-    }).toList();
-    return ResponseEntity.ok(sessions);
+    // Pure stateless: sessions are not stored in database
+    return ResponseEntity.ok(List.of());
   }
 
-  @Transactional
   public ResponseEntity<MessageResponse> logoutSession(UUID userId, UUID sessionId) {
-    Optional<com.example.chat_app_backend.auth.model.RefreshToken> tokenOpt = refreshTokenRepository.findById(sessionId);
-    if (tokenOpt.isPresent()) {
-        com.example.chat_app_backend.auth.model.RefreshToken token = tokenOpt.get();
-        if (token.getUserId().equals(userId)) {
-            token.setRevokedAt(java.time.Instant.now());
-            refreshTokenRepository.save(token);
-        }
-    }
+    // Pure stateless: individual sessions are not stored in database
     return ResponseEntity.ok(new MessageResponse("Session logged out successfully"));
   }
 }

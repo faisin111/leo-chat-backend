@@ -93,6 +93,8 @@ public class WebSecurityConfig {
                     .requestMatchers(
                         "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                     .permitAll()
+                    .requestMatchers("/ws", "/ws/**", "/error")
+                    .permitAll()
                     .anyRequest()
                     .authenticated());
     http.authenticationProvider(authenticationProvider());
