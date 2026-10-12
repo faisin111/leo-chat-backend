@@ -141,4 +141,77 @@ public class JwtUtils {
     }
     return false;
   }
+
+  public String generateEmailVerificationToken(String email) {
+    return Jwts.builder()
+        .setSubject(email)
+        .claim("type", "email_verification")
+        .setIssuedAt(new Date())
+        .setExpiration(new Date(System.currentTimeMillis() + 86400000L)) // 24 hours
+        .signWith(key(), SignatureAlgorithm.HS256)
+        .compact();
+  }
+
+  public String getEmailFromVerificationToken(String token) {
+    return Jwts.parserBuilder()
+        .setSigningKey(key())
+        .build()
+        .parseClaimsJws(token)
+        .getBody()
+        .getSubject();
+  }
+
+  public boolean validateEmailVerificationToken(String token) {
+    try {
+      var claims =
+          Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token).getBody();
+      return "email_verification".equals(claims.get("type"));
+    } catch (Exception e) {
+      // Log exception
+    }
+    return false;
+  }
+
+  public String generatePasswordResetToken(String email, String passwordHash) {
+    String hashFingerprint =
+        passwordHash.length() > 10
+            ? passwordHash.substring(passwordHash.length() - 10)
+            : passwordHash;
+    return Jwts.builder()
+        .setSubject(email)
+        .claim("type", "password_reset")
+        .claim("ph", hashFingerprint)
+        .setIssuedAt(new Date())
+        .setExpiration(new Date(System.currentTimeMillis() + 3600000L)) // 1 hour
+        .signWith(key(), SignatureAlgorithm.HS256)
+        .compact();
+  }
+
+  public String getEmailFromPasswordResetToken(String token) {
+    return Jwts.parserBuilder()
+        .setSigningKey(key())
+        .build()
+        .parseClaimsJws(token)
+        .getBody()
+        .getSubject();
+  }
+
+  public boolean validatePasswordResetToken(String token, String currentPasswordHash) {
+    try {
+      var claims =
+          Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token).getBody();
+      if (!"password_reset".equals(claims.get("type"))) {
+        return false;
+      }
+      String hashFingerprint =
+          currentPasswordHash.length() > 10
+              ? currentPasswordHash.substring(currentPasswordHash.length() - 10)
+              : currentPasswordHash;
+      return hashFingerprint.equals(claims.get("ph"));
+    } catch (Exception e) {
+      // Log exception
+    }
+    return false;
+  }
 }
+
