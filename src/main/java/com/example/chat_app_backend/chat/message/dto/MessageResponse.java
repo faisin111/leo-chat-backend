@@ -1,17 +1,23 @@
 package com.example.chat_app_backend.chat.message.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
 public record MessageResponse(
-    UUID id,
-    UUID conversationId,
-    UUID senderId,
-    long seq,
-    String clientMessageId,
-    String type,
-    String content,
-    UUID replyToId,
-    Instant createdAt,
-    Instant editedAt,
-    Instant deletedAt) {}
+    @Schema(description = "Server-assigned message ID") UUID id,
+    @Schema(description = "Conversation ID") UUID conversationId,
+    @Schema(description = "Authenticated sender ID") UUID senderId,
+    @Schema(description = "Server-assigned conversation sequence", example = "1") long seq,
+    @Schema(description = "Client-generated retry key, at most 64 characters", example = "msg-1")
+        String clientMessageId,
+    @Schema(
+            description = "Message type: TEXT, IMAGE, or FILE; SYSTEM is server-only",
+            example = "TEXT")
+        String type,
+    @Schema(description = "Message content, at most 4000 characters", example = "Hello")
+        String content,
+    @Schema(description = "Optional message ID in this conversation") UUID replyToId,
+    @Schema(description = "Creation time in UTC") Instant createdAt,
+    @Schema(description = "Edit time in UTC, if edited") Instant editedAt,
+    @Schema(description = "Deletion time in UTC, if deleted") Instant deletedAt) {}

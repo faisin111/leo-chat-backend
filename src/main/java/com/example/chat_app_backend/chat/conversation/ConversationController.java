@@ -1,14 +1,27 @@
 package com.example.chat_app_backend.chat.conversation;
 
+import com.example.chat_app_backend.chat.conversation.dto.AddMembersRequest;
+import com.example.chat_app_backend.chat.conversation.dto.ChangeRoleRequest;
+import com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse;
 import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.conversation.dto.CreateDirectChatRequest;
+import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
+import com.example.chat_app_backend.chat.conversation.dto.MuteRequest;
+import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
+import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
 import com.example.chat_app_backend.config.openapi.StandardErrors;
+import com.example.chat_app_backend.payload.response.ConversationPageResponse;
+import com.example.chat_app_backend.payload.response.CursorPageResponse;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,11 +34,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-
 
 @RestController
 @RequestMapping("/api/v1/conversations")
@@ -33,6 +41,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
     name = "Conversations",
     description = "Endpoints for managing chat conversations (DMs and Groups)")
 @SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "cookieAuth")
 @StandardErrors
 public class ConversationController {
 
@@ -45,14 +54,15 @@ public class ConversationController {
   @Operation(
       summary = "Get user conversations",
       description = "Returns all conversations sorted by latest activity")
-  @ApiResponse(responseCode = "200", description = "Successful response", content = @Content(schema = @Schema(implementation = com.example.chat_app_backend.payload.response.ConversationPageResponse.class)))
+  @ApiResponse(
+      responseCode = "200",
+      description = "Successful response",
+      content = @Content(schema = @Schema(implementation = ConversationPageResponse.class)))
   @GetMapping
-  public ResponseEntity<
-          com.example.chat_app_backend.payload.response.CursorPageResponse<ConversationResponse>>
-      getConversations(
-          @AuthenticationPrincipal UserDetailsImpl user,
-          @RequestParam(required = false) Long cursor,
-          @RequestParam(defaultValue = "50") int limit) {
+  public ResponseEntity<CursorPageResponse<ConversationResponse>> getConversations(
+      @AuthenticationPrincipal UserDetailsImpl user,
+      @RequestParam(required = false) Long cursor,
+      @RequestParam(defaultValue = "50") int limit) {
     return ResponseEntity.ok(conversationService.getUserConversations(user.getId(), cursor, limit));
   }
 
@@ -72,14 +82,15 @@ public class ConversationController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/{id}")
   public ResponseEntity<ConversationResponse> getConversation(
-      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     return ResponseEntity.ok(conversationService.getConversation(user.getId(), id));
   }
 
   @Operation(summary = "Get unread count")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/unread-count")
-  public ResponseEntity<com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse> getUnreadCount(@AuthenticationPrincipal UserDetailsImpl user) {
+  public ResponseEntity<UnreadCountResponse> getUnreadCount(
+      @AuthenticationPrincipal UserDetailsImpl user) {
     return ResponseEntity.ok(conversationService.getUnreadCount(user.getId()));
   }
 
@@ -88,8 +99,7 @@ public class ConversationController {
   @PostMapping("/group")
   public ResponseEntity<ConversationResponse> createGroupChat(
       @AuthenticationPrincipal UserDetailsImpl user,
-      @Valid @RequestBody
-          com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest request) {
+      @Valid @RequestBody CreateGroupChatRequest request) {
     return ResponseEntity.status(201)
         .body(conversationService.createGroupChat(user.getId(), request));
   }
@@ -99,18 +109,16 @@ public class ConversationController {
   @PatchMapping("/{id}")
   public ResponseEntity<ConversationResponse> updateGroupChat(
       @AuthenticationPrincipal UserDetailsImpl user,
-      @PathVariable java.util.UUID id,
-      @Valid @RequestBody
-          com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest request) {
+      @PathVariable UUID id,
+      @Valid @RequestBody UpdateGroupChatRequest request) {
     return ResponseEntity.ok(conversationService.updateGroupChat(user.getId(), id, request));
   }
 
   @Operation(summary = "Get conversation members")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/{id}/members")
-  public ResponseEntity<
-          List<com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse>>
-      getMembers(@AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+  public ResponseEntity<List<ConversationMemberResponse>> getMembers(
+      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     return ResponseEntity.ok(conversationService.getMembers(user.getId(), id));
   }
 
@@ -119,9 +127,8 @@ public class ConversationController {
   @PostMapping("/{id}/members")
   public ResponseEntity<Void> addMembers(
       @AuthenticationPrincipal UserDetailsImpl user,
-      @PathVariable java.util.UUID id,
-      @Valid @RequestBody
-          com.example.chat_app_backend.chat.conversation.dto.AddMembersRequest request) {
+      @PathVariable UUID id,
+      @Valid @RequestBody AddMembersRequest request) {
     conversationService.addMembers(user.getId(), id, request);
     return ResponseEntity.ok().build();
   }
@@ -131,8 +138,8 @@ public class ConversationController {
   @DeleteMapping("/{id}/members/{userId}")
   public ResponseEntity<Void> removeMember(
       @AuthenticationPrincipal UserDetailsImpl user,
-      @PathVariable java.util.UUID id,
-      @PathVariable java.util.UUID userId) {
+      @PathVariable UUID id,
+      @PathVariable UUID userId) {
     conversationService.removeMember(user.getId(), id, userId);
     return ResponseEntity.ok().build();
   }
@@ -142,10 +149,9 @@ public class ConversationController {
   @PatchMapping("/{id}/members/{userId}/role")
   public ResponseEntity<Void> changeRole(
       @AuthenticationPrincipal UserDetailsImpl user,
-      @PathVariable java.util.UUID id,
-      @PathVariable java.util.UUID userId,
-      @Valid @RequestBody
-          com.example.chat_app_backend.chat.conversation.dto.ChangeRoleRequest request) {
+      @PathVariable UUID id,
+      @PathVariable UUID userId,
+      @Valid @RequestBody ChangeRoleRequest request) {
     conversationService.changeRole(user.getId(), id, userId, request);
     return ResponseEntity.ok().build();
   }
@@ -155,8 +161,8 @@ public class ConversationController {
   @PutMapping("/{id}/mute")
   public ResponseEntity<Void> muteConversation(
       @AuthenticationPrincipal UserDetailsImpl user,
-      @PathVariable java.util.UUID id,
-      @Valid @RequestBody com.example.chat_app_backend.chat.conversation.dto.MuteRequest request) {
+      @PathVariable UUID id,
+      @Valid @RequestBody MuteRequest request) {
     conversationService.muteConversation(user.getId(), id, request.mutedUntil());
     return ResponseEntity.ok().build();
   }
@@ -165,7 +171,7 @@ public class ConversationController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @DeleteMapping("/{id}/mute")
   public ResponseEntity<Void> unmuteConversation(
-      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     conversationService.muteConversation(user.getId(), id, null);
     return ResponseEntity.ok().build();
   }
@@ -174,7 +180,7 @@ public class ConversationController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PutMapping("/{id}/pin")
   public ResponseEntity<Void> pinConversation(
-      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     conversationService.pinConversation(user.getId(), id, true);
     return ResponseEntity.ok().build();
   }
@@ -183,7 +189,7 @@ public class ConversationController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @DeleteMapping("/{id}/pin")
   public ResponseEntity<Void> unpinConversation(
-      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     conversationService.pinConversation(user.getId(), id, false);
     return ResponseEntity.ok().build();
   }
@@ -192,7 +198,7 @@ public class ConversationController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PutMapping("/{id}/archive")
   public ResponseEntity<Void> archiveConversation(
-      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     conversationService.archiveConversation(user.getId(), id, true);
     return ResponseEntity.ok().build();
   }
@@ -201,7 +207,7 @@ public class ConversationController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @DeleteMapping("/{id}/archive")
   public ResponseEntity<Void> unarchiveConversation(
-      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable java.util.UUID id) {
+      @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     conversationService.archiveConversation(user.getId(), id, false);
     return ResponseEntity.ok().build();
   }

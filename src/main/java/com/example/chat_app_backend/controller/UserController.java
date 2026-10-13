@@ -1,10 +1,18 @@
 package com.example.chat_app_backend.controller;
 
 import com.example.chat_app_backend.config.openapi.StandardErrors;
+import com.example.chat_app_backend.payload.request.UpdateProfileRequest;
+import com.example.chat_app_backend.payload.response.MessageResponse;
+import com.example.chat_app_backend.payload.response.UserProfileResponse;
+import com.example.chat_app_backend.payload.response.UserSearchResponse;
+import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,17 +26,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "Users", description = "Endpoints for retrieving user profiles and directories")
 @SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "cookieAuth")
 @StandardErrors
 public class UserController {
 
@@ -39,7 +43,7 @@ public class UserController {
       description = "Retrieves the profile of the currently authenticated user.")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/me")
-  public ResponseEntity<com.example.chat_app_backend.payload.response.UserProfileResponse> getCurrentUser() {
+  public ResponseEntity<UserProfileResponse> getCurrentUser() {
     return userService.getCurrentUser();
   }
 
@@ -48,7 +52,7 @@ public class UserController {
       description = "Retrieves the public profile of a specific user by their UUID.")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/{id}")
-  public ResponseEntity<com.example.chat_app_backend.payload.response.UserProfileResponse> getUserById(@PathVariable UUID id) {
+  public ResponseEntity<UserProfileResponse> getUserById(@PathVariable UUID id) {
     return userService.getUserById(id);
   }
 
@@ -57,8 +61,7 @@ public class UserController {
       description = "Allows the current user to update their phone number, bio, age, and region.")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PatchMapping("/me/profile")
-  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> updateProfile(
-      @RequestBody com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
+  public ResponseEntity<MessageResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
     return userService.updateProfile(request);
   }
 
@@ -67,14 +70,14 @@ public class UserController {
       description = "Deactivate own account (rejected for the admin)")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @DeleteMapping("/me")
-  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> deactivateAccount() {
+  public ResponseEntity<MessageResponse> deactivateAccount() {
     return userService.deactivateCurrentUser();
   }
 
   @Operation(summary = "Search users")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/search")
-  public ResponseEntity<java.util.List<com.example.chat_app_backend.payload.response.UserSearchResponse>> searchUsers(
+  public ResponseEntity<List<UserSearchResponse>> searchUsers(
       @RequestParam String q,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
@@ -84,26 +87,23 @@ public class UserController {
   @Operation(summary = "Get user presence")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/presence")
-  public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getPresence(@RequestParam java.util.List<UUID> ids) {
+  public ResponseEntity<List<Map<String, Object>>> getPresence(@RequestParam List<UUID> ids) {
     return userService.getPresence(ids);
   }
 
   @Operation(summary = "Get active sessions")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/me/sessions")
-  public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getSessions(
-      @AuthenticationPrincipal
-          com.example.chat_app_backend.security.services.UserDetailsImpl userDetails) {
+  public ResponseEntity<List<Map<String, Object>>> getSessions(
+      @AuthenticationPrincipal UserDetailsImpl userDetails) {
     return userService.getSessions(userDetails.getId());
   }
 
   @Operation(summary = "Logout specific session")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @DeleteMapping("/me/sessions/{sessionId}")
-  public ResponseEntity<com.example.chat_app_backend.payload.response.MessageResponse> logoutSession(
-      @AuthenticationPrincipal
-          com.example.chat_app_backend.security.services.UserDetailsImpl userDetails,
-      @PathVariable UUID sessionId) {
+  public ResponseEntity<MessageResponse> logoutSession(
+      @AuthenticationPrincipal UserDetailsImpl userDetails, @PathVariable UUID sessionId) {
     return userService.logoutSession(userDetails.getId(), sessionId);
   }
 }

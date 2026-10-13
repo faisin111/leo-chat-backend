@@ -1,11 +1,23 @@
 package com.example.chat_app_backend.chat.conversation;
 
+import com.example.chat_app_backend.chat.conversation.dto.AddMembersRequest;
+import com.example.chat_app_backend.chat.conversation.dto.ChangeRoleRequest;
+import com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse;
 import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
+import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
+import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
+import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
+import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
+import com.example.chat_app_backend.payload.response.CursorPageResponse;
 import com.example.chat_app_backend.repository.UserRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +35,14 @@ public class ConversationService {
     this.conversationRepository = conversationRepository;
     this.memberRepository = memberRepository;
     this.userRepository = userRepository;
+  }
+
+  @Transactional(readOnly = true)
+  public void assertActiveMember(UUID userId, UUID conversationId) {
+    memberRepository
+        .findByIdConversationIdAndIdUserId(conversationId, userId)
+        .filter(member -> member.getLeftAt() == null)
+        .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
   }
 
   @Transactional
@@ -60,22 +80,22 @@ public class ConversationService {
   }
 
   @Transactional(readOnly = true)
-  public com.example.chat_app_backend.payload.response.CursorPageResponse<ConversationResponse>
-      getUserConversations(UUID userId, Long cursor, int limit) {
+  public CursorPageResponse<ConversationResponse> getUserConversations(
+      UUID userId, Long cursor, int limit) {
     int page = (cursor == null) ? 0 : cursor.intValue();
-    org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, limit);
-    org.springframework.data.domain.Page<Conversation> pageResult = conversationRepository.findByUserIdOrderByLastMessageAtDesc(userId, pageable);
+    Pageable pageable = PageRequest.of(page, limit);
+    Page<Conversation> pageResult =
+        conversationRepository.findByUserIdOrderByLastMessageAtDesc(userId, pageable);
 
-    List<ConversationResponse> responses = pageResult.getContent().stream()
-        .map(c -> mapToResponse(c, userId))
-        .collect(Collectors.toList());
+    List<ConversationResponse> responses =
+        pageResult.getContent().stream()
+            .map(c -> mapToResponse(c, userId))
+            .collect(Collectors.toList());
 
     boolean hasMore = pageResult.hasNext();
     String nextCursor = hasMore ? String.valueOf(page + 1) : null;
-    return new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
-        responses, hasMore, nextCursor);
+    return new CursorPageResponse<>(responses, hasMore, nextCursor);
   }
-
 
   private ConversationResponse mapToResponse(Conversation c, UUID currentUserId) {
     String targetUsername = null;
@@ -116,7 +136,6 @@ public class ConversationService {
         targetAvatarUrl);
   }
 
-
   @Transactional(readOnly = true)
   public ConversationResponse getConversation(UUID userId, UUID conversationId) {
     Conversation conv =
@@ -131,16 +150,13 @@ public class ConversationService {
   }
 
   @Transactional(readOnly = true)
-  public com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse getUnreadCount(
-      UUID userId) {
+  public UnreadCountResponse getUnreadCount(UUID userId) {
     Long totalUnread = conversationRepository.getUnreadCountByUserId(userId);
-    return new com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse(totalUnread != null ? totalUnread : 0L);
+    return new UnreadCountResponse(totalUnread != null ? totalUnread : 0L);
   }
 
   @Transactional
-  public ConversationResponse createGroupChat(
-      UUID userId,
-      com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest request) {
+  public ConversationResponse createGroupChat(UUID userId, CreateGroupChatRequest request) {
     Conversation c = new Conversation();
     c.setType(ConversationType.GROUP);
     c.setTitle(request.title());
@@ -166,9 +182,7 @@ public class ConversationService {
 
   @Transactional
   public ConversationResponse updateGroupChat(
-      UUID userId,
-      UUID id,
-      com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest request) {
+      UUID userId, UUID id, UpdateGroupChatRequest request) {
     Conversation c =
         conversationRepository.findById(id).orElseThrow(() -> new NotFoundException("Not found"));
     ConversationMember mem =
@@ -184,15 +198,14 @@ public class ConversationService {
   }
 
   @Transactional(readOnly = true)
-  public List<com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse>
-      getMembers(UUID userId, UUID id) {
+  public List<ConversationMemberResponse> getMembers(UUID userId, UUID id) {
     memberRepository
         .findById(new ConversationMemberId(id, userId))
         .orElseThrow(() -> new RuntimeException("Not member"));
     return memberRepository.findByIdConversationId(id).stream()
         .map(
             m ->
-                new com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse(
+                new ConversationMemberResponse(
                     m.getId().getConversationId(),
                     m.getId().getUserId(),
                     m.getRole(),
@@ -206,10 +219,7 @@ public class ConversationService {
   }
 
   @Transactional
-  public void addMembers(
-      UUID userId,
-      UUID id,
-      com.example.chat_app_backend.chat.conversation.dto.AddMembersRequest request) {
+  public void addMembers(UUID userId, UUID id, AddMembersRequest request) {
     ConversationMember mem =
         memberRepository
             .findById(new ConversationMemberId(id, userId))
@@ -239,11 +249,7 @@ public class ConversationService {
   }
 
   @Transactional
-  public void changeRole(
-      UUID userId,
-      UUID id,
-      UUID targetId,
-      com.example.chat_app_backend.chat.conversation.dto.ChangeRoleRequest request) {
+  public void changeRole(UUID userId, UUID id, UUID targetId, ChangeRoleRequest request) {
     ConversationMember mem =
         memberRepository
             .findById(new ConversationMemberId(id, userId))
@@ -258,7 +264,7 @@ public class ConversationService {
   }
 
   @Transactional
-  public void muteConversation(UUID userId, UUID id, java.time.Instant mutedUntil) {
+  public void muteConversation(UUID userId, UUID id, Instant mutedUntil) {
     ConversationMember mem =
         memberRepository
             .findById(new ConversationMemberId(id, userId))
@@ -273,7 +279,7 @@ public class ConversationService {
         memberRepository
             .findById(new ConversationMemberId(id, userId))
             .orElseThrow(() -> new RuntimeException("Not member"));
-    mem.setPinnedAt(pin ? java.time.Instant.now() : null);
+    mem.setPinnedAt(pin ? Instant.now() : null);
     memberRepository.save(mem);
   }
 
@@ -283,7 +289,7 @@ public class ConversationService {
         memberRepository
             .findById(new ConversationMemberId(id, userId))
             .orElseThrow(() -> new RuntimeException("Not member"));
-    mem.setArchivedAt(archive ? java.time.Instant.now() : null);
+    mem.setArchivedAt(archive ? Instant.now() : null);
     memberRepository.save(mem);
   }
 }

@@ -73,7 +73,7 @@ A modular monolith gives one deployable and simple transactions, while strict mo
 | Database | PostgreSQL 16 | ACID, JSONB, strong indexing |
 | Cache / presence / fan-out | Redis 7 | Fast TTL keys, pub/sub for multi-instance |
 | Migrations | Flyway | Versioned, repeatable schema changes |
-| Auth | JWT access token + rotating refresh token | Stateless REST, revocable sessions |
+| Auth | Stateless access and refresh JWTs | Browser HttpOnly cookies + CSRF; Bearer compatibility; no server token storage |
 | Password hashing | Argon2id or BCrypt (strength 12) | Industry standard |
 | Mapping | MapStruct | Compile-time, no reflection overhead |
 | Validation | Jakarta Bean Validation | Declarative |
@@ -176,34 +176,40 @@ com.example.chat_app_backend
 
 ## 5. Authentication and Authorization
 
-### 5.1 Flow
+### 5.1 Flow (approved fully stateless REST policy)
+
+The user chose fully stateless JWTs with client-only logout on 2026-10-13. No token database, refresh sessions, denylist or HTTP session is used. The latest user request restores HttpOnly JWT browser cookies with CSRF protection; explicit Bearer API clients remain supported. Account data is still loaded for current status and role checks. See `docs/AUTHENTICATION.md` for the current API contract and package structure.
 
 ```
-Register ─► POST /api/v1/auth/register
-Login    ─► POST /api/v1/auth/login       → Set-Cookie: leo_chat_jwt, Set-Cookie: leo_chat_jwt_refresh
-Call API ─► Cookie: leo_chat_jwt=<accessToken>
-Refresh  ─► POST /api/v1/auth/refresh     → Set-Cookie: new tokens (old one invalidated)
-Logout   ─► POST /api/v1/auth/logout      → revoke refresh token (this device)
-Logout all ► POST /api/v1/auth/logout-all → revoke all refresh tokens of the user
+Register: POST /api/v1/auth/register -> 201 regular user
+CSRF: GET /api/v1/auth/csrf -> XSRF-TOKEN cookie and header token
+Login: POST /api/v1/auth/login -> HttpOnly JWT cookies plus JSON TokenResponse
+Browser API: cookies with credentials; writes also send X-XSRF-TOKEN
+API clients: Authorization: Bearer <accessToken>
+Refresh: POST /api/v1/auth/refresh reads its cookie; JSON fallback supported
+Logout: CSRF-protected POST /api/v1/auth/logout clears cookies even with an expired JWT -> 204
+Logout all: POST /api/v1/auth/logout-all -> 422 unsupported
 ```
 
 ### 5.2 Token design
 
-| Token | Lifetime | Storage (server) | Notes |
+| Token | Default lifetime | Server token storage | Notes |
 |---|---|---|---|
-| Access JWT | 15 min | none (stateless) | Claims: `sub` (userId), `roles`, `iat`, `exp`, `jti` |
-| Refresh token | 7-30 days | DB, **hashed (SHA-256)** | Opaque random 256-bit string, one row per device |
+| Access JWT | 15 minutes | None | HS256; subject is username; `iss`, `aud`, `iat`, `exp`, `jti`, `type=access` |
+| Refresh JWT | 7 days from login | None | `type=refresh`; exchange preserves original expiry; old tokens remain valid |
 
-**Refresh token rotation and reuse detection:** each refresh issues a new token and marks the old one `used`. If a used token is presented again, revoke the whole token family and force re-login (token theft signal).
+Refresh exchange is **not revocable rotation**. Reuse detection, remote logout and immediate JWT invalidation after password changes are unsupported by this policy. Password reset links are bound to the current password hash, so resetting invalidates that reset link; access and refresh JWTs remain valid. JWTs lacking required issuer/audience/type/ID claims are rejected. Clients must sign in again after this auth migration.
 
 ### 5.3 Rules
-- Sign JWT with **HS256 (secret 256+ bit from env)** for a single service, or **RS256** if other services must verify.
-- Validate on every request: signature, expiry, and user still active.
-- Password rules: min 8 chars, hash with BCrypt (12) or Argon2id, never store or log plaintext.
-- Rate-limit `login`, `register`, and `refresh` (for example 5 attempts per minute per IP and username). Temporary lockout after repeated failures.
-- Generic login error: "Invalid credentials" (do not reveal whether the username exists).
-- CORS: explicit allowed origins, never `*` in prod.
-- CSRF must be carefully considered because auth uses HttpOnly cookies (`leo_chat_jwt` and `leo_chat_jwt_refresh` with SameSite=Lax).
+
+- Sign JWTs with HS256 and a Base64-encoded key containing at least 32 random bytes. Configure issuer/audience and lifetimes through `app.jwt` / environment variables.
+- Validate signature, expiry, issuer, audience and token purpose. Load current account status/role on REST calls and WebSocket CONNECT. Non-active accounts cannot log in, refresh or authenticate new requests.
+- Tokens are set as HttpOnly cookies and returned as JSON for API compatibility, with `Cache-Control: no-store` and `Pragma: no-cache`. Never return recovery/verification tokens from public endpoints or print them in logs.
+- Only registration, login, refresh and recovery/verification POST routes are public. Password change requires authentication; logout is public but browser CSRF-protected. Browser cookies authenticate when no Authorization header is supplied; a bad supplied header never falls back to a cookie.
+- Passwords use BCrypt cost 12. Registration always creates `ROLE_USER`; admin creation is an explicit, enabled bootstrap operation.
+- Browser logout clears cookies; API clients clear local token storage. Never claim server-wide revocation while this policy is selected.
+- CORS uses explicit origins and credentials. Cookie-backed CSRF protects browser writes, including login/refresh; Bearer-only requests without auth cookies may skip CSRF.
+- Auth rate limiting and proactive closure of existing WebSocket sessions remain future work.
 
 ### 5.4 Authorization and Roles
 
@@ -217,8 +223,8 @@ The system has **exactly two roles**:
 **Single-admin rules (non-negotiable):**
 1. **Database guarantee:** a partial unique index makes a second admin impossible, even under concurrency or a coding bug (see migration `V2`, section 6.3).
 2. **No public path creates an admin.** `POST /auth/register` always creates `USER`. The request body must never contain or accept a `role` field.
-3. **Bootstrap:** the one admin is created at first startup by `AdminBootstrapRunner` from environment variables `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`. It is idempotent: if an admin already exists, it does nothing. If two instances start at once, the unique index lets only one succeed and the other ignores the conflict. The bootstrapped admin has `must_change_password = true`.
-4. **No promotion endpoint.** There is no API to "make user X an admin". The only way to change who is admin is the guarded **ownership transfer** (`POST /admin/transfer-ownership`): the current admin re-enters their password and names the target user; the server demotes the old admin and promotes the target in **one transaction** (demote first, then promote), revokes all sessions of both, and writes an audit log.
+3. **Bootstrap:** enable `ADMIN_BOOTSTRAP_ENABLED=true` to create the one admin at startup by `AdminBootstrapRunner` from environment variables `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`. It is idempotent: if an admin already exists, it does nothing. If two instances start at once, the unique index lets only one succeed and the other fails rather than creating a second admin. The bootstrapped admin has `must_change_password = true`.
+4. **No promotion endpoint.** There is no API to "make user X an admin". The only way to change who is admin is the guarded **ownership transfer** (`POST /admin/transfer-ownership`): the current admin re-enters their password and names the target user; the server demotes the old admin and promotes the target in **one transaction** (demote first, then promote), checks current roles on each request, and writes an audit log.
 5. **The admin cannot be harmed by admin tools:** the admin cannot disable, ban, delete, block, or demote themselves through normal endpoints. `DELETE /users/me` is rejected for the admin (`BUSINESS_RULE`, "Transfer ownership first").
 6. **Admin is also a normal chat user** (may chat, join groups). Admin powers are extra endpoints under `/api/v1/admin/**`.
 7. **Privacy:** admin endpoints expose metadata, statistics, and reported or moderated content only. The admin **cannot read private conversation history** in general. Reading a message is allowed only when it was reported (`reports`), and that access is audit-logged.
@@ -230,7 +236,7 @@ The system has **exactly two roles**:
 
 **Resource-level checks are mandatory for USER endpoints:** a user may read or send only in conversations where they are a **member**. Enforce in the service layer (`conversationService.assertActiveMember(userId, conversationId)`), not only at the URL level.
 
-**Account statuses:** `ACTIVE`, `DISABLED` (by user or admin, can be restored), `BANNED` (by admin), `DELETED` (soft delete, data anonymized). Any non-`ACTIVE` status: login rejected, refresh tokens revoked, live WebSocket sessions closed.
+**Account statuses:** `ACTIVE`, `DISABLED` (by user or admin, can be restored), `BANNED` (by admin), `DELETED` (soft delete, data anonymized). Any non-`ACTIVE` status: login/refresh/new REST authentication rejected; existing JWTs remain signed-valid; active socket closure remains future work.
 
 ### 5.5 WebSocket authentication
 - Client connects to `/ws` and sends the JWT in the STOMP `CONNECT` header (`Authorization: Bearer ...`).
@@ -245,7 +251,6 @@ The system has **exactly two roles**:
 ### 6.1 Entity relationship
 
 ```
-users 1───* refresh_tokens
 users *───* conversations   (via conversation_members)
 conversations 1───* messages
 messages 1───* message_attachments
@@ -271,18 +276,7 @@ CREATE TABLE users (
   updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
-CREATE TABLE refresh_tokens (
-  id          UUID PRIMARY KEY,
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token_hash  VARCHAR(64) NOT NULL UNIQUE,
-  family_id   UUID NOT NULL,
-  device_info VARCHAR(200),
-  expires_at  TIMESTAMPTZ NOT NULL,
-  used_at     TIMESTAMPTZ,
-  revoked_at  TIMESTAMPTZ,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_refresh_user ON refresh_tokens(user_id);
+-- Fully stateless auth: no refresh-token or session table.
 
 CREATE TABLE conversations (
   id          UUID PRIMARY KEY,
@@ -519,10 +513,10 @@ Base path: `/api/v1`. JSON only (except uploads to object storage). Auth header:
 |---|---|---|---|---|
 | POST | `/auth/register` | Public | B | Create a `USER` account (role can never be chosen) |
 | POST | `/auth/login` | Public | B | Returns access + refresh tokens |
-| POST | `/auth/refresh` | Public | B | Rotate tokens (refresh token in HttpOnly cookie) |
-| POST | `/auth/logout` | User | B | Revoke current refresh token |
-| POST | `/auth/logout-all` | User | B | Revoke all sessions of the user |
-| POST | `/auth/change-password` | User | M | Requires current password; revokes other sessions; clears `must_change_password` |
+| POST | `/auth/refresh` | Public | B | Exchange JSON refresh JWT; preserve expiry; old token remains valid |
+| POST | `/auth/logout` | User | B | Acknowledge client logout (204); client deletes tokens |
+| POST | `/auth/logout-all` | User | B | Return 422: server revocation unsupported |
+| POST | `/auth/change-password` | User | M | Requires current password; updates credentials; existing JWTs remain valid |
 | POST | `/auth/forgot-password` | Public | M | Email a reset token (always responds 202, no user enumeration) |
 | POST | `/auth/reset-password` | Public | M | Set new password with token |
 | POST | `/auth/verify-email` | Public | M | Confirm email token |
@@ -592,7 +586,7 @@ All routes: `Access = Admin`. All mutating routes write an `audit_logs` row.
 | GET | `/admin/users?q=&status=&cursor=&limit=` | M | List and filter users |
 | GET | `/admin/users/{id}` | M | User detail (profile, status, counts, last seen; **no message content**) |
 | PATCH | `/admin/users/{id}/status` | M | Body `{status: ACTIVE\|DISABLED\|BANNED, reason}`. Revokes tokens, closes sockets. Cannot target the admin. |
-| POST | `/admin/users/{id}/force-logout` | M | Revoke all sessions and close sockets |
+| POST | `/admin/users/{id}/force-logout` | M | Return 422: stateless server revocation unsupported |
 | DELETE | `/admin/users/{id}` | M | Soft delete and anonymize (cannot target the admin) |
 | GET | `/admin/conversations?q=&status=&cursor=` | M | Conversation metadata (type, member count, created, last activity) |
 | PATCH | `/admin/conversations/{id}/status` | A | Body `{status: ACTIVE\|LOCKED, reason}`. Locked = no new messages |
@@ -636,12 +630,10 @@ Response `201`:
 ```
 
 **Login** `POST /auth/login` → `200`
-Response Headers:
-`Set-Cookie: leo_chat_jwt=eyJhbGciOi...; Path=/api; HttpOnly; SameSite=Lax`
-`Set-Cookie: leo_chat_jwt_refresh=0ff9a1bd...; Path=/api/v1/auth/refresh; HttpOnly; SameSite=Lax`
+Response Headers: `Cache-Control: no-store`, `Pragma: no-cache`, access/refresh `Set-Cookie` with configured security flags.
 Response Body:
 ```json
-{ "id": "uuid", "username": "alice", "email": "alice@example.com" }
+{ "accessToken": "<jwt>", "refreshToken": "<refresh-jwt>", "tokenType": "Bearer", "expiresIn": 900, "refreshExpiresIn": 604800, "id": "uuid", "username": "alice", "email": "alice@example.com" }
 ```
 
 **Send message** `POST /conversations/{id}/messages` → `201`
@@ -700,7 +692,7 @@ URL versioning (`/api/v1`). Additive changes stay in v1. Breaking changes go in 
 | # | Feature | Acceptance criteria |
 |---|---|---|
 | B1 | Registration and login | Unique username/email, hashed password, JWT access and refresh |
-| B2 | Refresh and logout | Rotation works, revoked tokens rejected |
+| B2 | Stateless refresh and client logout | Token types/expiry validated; fixed refresh horizon; client clears tokens |
 | B3 | User profile | View and edit own profile, view others |
 | B4 | User search | Find users by username |
 | B5 | Direct (1-to-1) chat | Get-or-create DM without duplicates |
@@ -763,7 +755,7 @@ URL versioning (`/api/v1`). Additive changes stay in v1. Breaking changes go in 
 - [ ] Membership checked for every conversation/message access (REST and WS).
 - [ ] Input validated (`@Valid`), max sizes enforced on body, text, and uploads.
 - [ ] No IDOR: never trust IDs from the client without checking ownership or membership.
-- [ ] Passwords hashed; refresh tokens hashed in DB; secrets from env.
+- [ ] Passwords hashed; no token storage; JWT signing key from environment.
 - [ ] Rate limiting on auth, search, and send.
 - [ ] CORS locked to known origins; WebSocket `Origin` check enabled.
 - [ ] Security headers (HSTS, `X-Content-Type-Options`, etc.), HTTPS/WSS only in prod.
@@ -803,7 +795,7 @@ URL versioning (`/api/v1`). Additive changes stay in v1. Breaking changes go in 
 | Concurrency | `ExecutorService` + latches | 50 parallel sends in one conversation → unique gapless `seq`; duplicate `clientMessageId` → 1 row |
 | Load | k6/Gatling (Advanced) | Connection count, latency |
 
-**Mandatory tests for the core:** duplicate send is idempotent; non-member cannot send or subscribe; `seq` is gapless under concurrency; refresh token reuse revokes the family; pagination cursors are stable.
+**Mandatory tests for the core:** duplicate send is idempotent; non-member cannot send or subscribe; `seq` is gapless under concurrency; refresh reuse is accepted without extending the original expiry; pagination cursors are stable.
 
 Naming: `methodName_condition_expectedResult`.
 
@@ -838,21 +830,21 @@ Semantic versioning, `CHANGELOG.md`, Docker image tagged with the git SHA, Flywa
 
 ### 15.1 Verified repository state (2026-10-13)
 
-This is a source inspection, not a passing build or production readiness assessment. No tests were run for this documentation update.
+The baseline audit was a source inspection. The subsequent messaging repair added service, REST, STOMP and H2 concurrency tests; PostgreSQL migrations and full production readiness remain unverified.
 
 | Area | Current implementation | Gap against target |
 |---|---|---|
 | Runtime/infrastructure | Java 17 in Maven, Docker and CI; Boot 3.3.4; Compose PostgreSQL 15, Redis 7, MinIO | Java 21/PostgreSQL 16 are planned upgrades; Redis and object storage are not integrated into application services |
 | Structure | Mixed feature and layer packages; manual DTO mapping; some services return `ResponseEntity` | Target feature boundaries, constructor injection and DTO-only service contracts are not consistently enforced |
-| Auth | Access and refresh JWTs; HttpOnly cookies; email verification and password reset code | Refresh does not invalidate the previous JWT; logout/logout-all have no server revocation; session listing returns empty and remote logout is a stub |
-| Admin | Stored roles use `ROLE_USER`/`ROLE_ADMIN`; first registration becomes admin when none exists | No `AdminBootstrapRunner`; transfer only sets target role without demoting owner, password check, session revocation or audit in that method |
-| Messages | Membership checks on send/history/get; sequence increment; duplicate lookup; edit/delete and read pointer updates | Broadcast occurs inside transaction; duplicate lookup precedes authorization; concurrent retry handling requires tests; read pointer update needs DB-level concurrency protection |
-| Pagination | History filters by `beforeSeq`; conversation cursor is a page number | `afterSeq` is ignored; history loads all matching rows before Java limit; conversation pagination uses offsets |
-| WebSocket | Simple in-process broker; CONNECT token parsing; message ACK and typing broadcast | Invalid/missing CONNECT token is not explicitly rejected; no SUBSCRIBE membership authorization; typing lacks membership checks; origins allow `*` |
-| Product features | DM/group APIs, profile/search, presence endpoint, admin/report APIs | Presence returns account status/last-seen rather than connection tracking; reactions only log; media returns mock URLs; blocking, mentions and rate limiting need implementation evidence |
+| Auth | Stateless JWT cookies/CSRF plus Bearer API compatibility; strict purpose/issuer/audience checks; cookie-clearing logout; generic emailed recovery | Server revocation/device sessions intentionally unsupported; rate limiting and live socket closure remain incomplete |
+| Admin | Registration creates ROLE_USER; explicit optional AdminBootstrapRunner creates ROLE_ADMIN from configured credentials | Ownership transfer still needs atomic demotion/promotion, password check and audit; stateless tokens use live role checks rather than revocation |
+| Messages | Active membership checks; conversation lock serializes retries and sequence allocation; ACK then broadcast after commit; atomic forward-only reads; edit/delete authorization; persisted reactions | PostgreSQL-specific locking and migrations still need integration validation; read-receipt/reaction broadcasts remain incomplete |
+| Pagination | Message history uses bounded `beforeSeq`/`afterSeq` queries; conversation cursor is a page number | Conversation pagination still uses offsets |
+| WebSocket | Simple broker; required access-token CONNECT; authorized subscriptions; restricted SEND paths; typing/read membership checks; shared configured origins; real STOMP regression tests | Live account-status/session revocation and multi-node delivery remain incomplete |
+| Product features | DM/group APIs, profile/search, presence endpoint, admin/report APIs | Presence returns account status/last-seen rather than connection tracking; reactions persist; media returns mock URLs; blocking, mentions and rate limiting need implementation evidence |
 | Database | V0 through V5 migration files; single-admin partial index uses `ROLE_ADMIN` | V0 is a placeholder without table creation; later files require existing tables; V5 drops refresh_tokens; section 6 SQL is a target example, not the deployed schema |
 | Admin responses | Some list/detail methods return User, Conversation, Report or AuditLog entities | Replace with explicit response DTOs and verify privacy and authorization |
-| Tests/CI | AuthServiceTest and H2 context smoke test; Flyway disabled in test; Maven verify in CI | No PostgreSQL/Testcontainers, STOMP, concurrency or OpenAPI contract tests found; CI swallows formatter and dependency-scan failures |
+| Tests/CI | Auth/context tests plus message service, REST, STOMP, concurrency and message OpenAPI checks; Flyway disabled in test; Maven verify in CI | No PostgreSQL/Testcontainers or full endpoint contract suite; CI swallows formatter and dependency-scan failures |
 | Observability | Actuator dependency and endpoint exposure settings | Prometheus exporter dependency, dashboards and distributed tracing are not established by current source |
 
 Actual migration inventory: `V0__init.sql`, `V1__single_admin.sql`, `V2__indexes.sql`, `V3__add_email_verified.sql`, `V4__drop_profile_url_from_users.sql`, `V5__drop_refresh_tokens.sql`.
@@ -861,9 +853,9 @@ Do not edit applied migrations. Reconcile existing database history before desig
 ### 15.2 Ordered repair plan
 
 1. **B10/B11: establish a reliable baseline.** Inspect actual database history, repair fresh-install migration support without rewriting applied files, run `./mvnw clean verify`, and add PostgreSQL migration tests. Make formatter failures fail CI.
-2. **B1/B2/B12: repair auth and admin lifecycle.** Restore revocable refresh sessions with additive migrations, enforce rotation/reuse detection, implement logout and device revocation, replace first-registration admin creation with bootstrap, and make ownership transfer atomic and audited. Review existing admin safety/privacy checks.
-3. **B6/B9: secure real-time access.** Reject unauthenticated CONNECT/SEND/SUBSCRIBE, authorize subscription and typing destinations, configure explicit origins, and test REST and STOMP membership failures.
-4. **B5/B6/B7/B8: prove messaging correctness.** Authorize before duplicate return, handle concurrent retries, broadcast after commit, implement bounded before/after history and stable conversation cursors, and test DM uniqueness and sequence allocation.
+2. **B1/B2/B12: maintain approved stateless auth.** Browser cookie/CSRF transport, Bearer compatibility, fixed refresh expiry, explicit route security and optional admin bootstrap are implemented. Do not add refresh sessions or claim remote revocation without a new user decision. Complete audited ownership transfer and admin safety/privacy checks.
+3. **B6/B9: secure real-time access.** Token enforcement, subscription/typing authorization, explicit origins and REST/STOMP tests are implemented. Complete live account-status/session checks and PostgreSQL validation.
+4. **B5/B6/B7/B8: prove messaging correctness.** Authorization before retries, serialized deduplication, after-commit delivery and bounded before/after message history are implemented and regression-tested on H2. Complete stable conversation cursors, DM uniqueness tests and PostgreSQL sequence/retry checks.
 5. **B9/B13: enforce contracts.** Replace entity responses and raw service HTTP responses with DTOs, standardize errors/validation, and add OpenAPI contract coverage.
 6. **Medium phase:** complete presence, typing, read receipts, reactions, mentions, real media, blocking, rate limiting and reconnect sync. Treat existing scaffolds as incomplete until behavior and tests satisfy exit criteria.
 7. **Structure cleanup:** move user, admin, media and common infrastructure into feature packages incrementally. Consolidate duplicate DTO/error types with compatibility checks. Avoid a global package rename or simultaneous behavior refactor.
@@ -1129,7 +1121,7 @@ class AdminUserController {
       summary = "Change a user's status",
       description = """
         Sets the user to `ACTIVE`, `DISABLED`, or `BANNED`.
-        Side effects: all refresh tokens are revoked and live WebSocket sessions are closed.
+        Stateless policy: no token revocation; current roles are checked on subsequent requests.
         The admin account cannot be targeted. Writes an audit log entry.""")
   @ApiResponse(responseCode = "200", description = "Status updated")
   @ApiResponse(responseCode = "404", description = "User not found")

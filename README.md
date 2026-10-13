@@ -17,9 +17,11 @@ docker compose up -d
 ```
 
 ### 2. Configure Environment
-Copy the example environment file and fill in your secrets (or leave the defaults for local testing):
+Copy the example environment file and configure your secrets. `JWT_SECRET` must contain a Base64-encoded random key with at least 32 decoded bytes:
 ```bash
 cp .env.example .env
+# Generate a signing key, then paste it into JWT_SECRET in .env:
+openssl rand -base64 32
 ```
 
 ### 3. Run the Application
@@ -37,15 +39,17 @@ Once the server is running, explore the API endpoints using Swagger UI:
 
 ## Current Implementation
 
-- JWT authentication with HttpOnly cookies; refresh-token revocation and server-side logout remain unimplemented.
-- REST and STOMP message sending with database persistence and sender ACKs; after-commit broadcast and subscription authorization need repairs.
+- Stateless HttpOnly JWT cookies with browser CSRF protection, JSON token responses and Bearer API compatibility. See [authentication flow](docs/AUTHENTICATION.md).
+- REST and STOMP message sending with database persistence, ACK-before-broadcast after commit, retry deduplication and authorized conversation subscriptions.
 - Direct/group conversations, profile/search, message history, read pointers, edit/delete and admin endpoints exist.
-- Conversation pagination uses page offsets. Message `afterSeq` sync is not implemented.
-- Reactions, device sessions and media storage remain stubs.
+- Conversation pagination uses page offsets. Message history supports bounded `beforeSeq` and ascending `afterSeq` sync.
+- Reactions persist. Device sessions are intentionally unsupported; media storage remains a stub.
 - Current package map and ordered repair plan live in `PROJECT_DOCUMENTATION.md`, sections 3 and 15.
 
 ## Testing
-Current tests cover auth service behavior and an H2 application-context smoke test. Run them using:
+Tests cover auth behavior, message services, all eight message REST routes, STOMP delivery/authorization, concurrent sends/retries and message OpenAPI metadata on H2. PostgreSQL migration validation remains outstanding. Run them using:
 ```bash
 ./mvnw test
 ```
+
+Admin provisioning is explicit: set `ADMIN_BOOTSTRAP_ENABLED=true` and `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`. Public registration always creates ROLE_USER.

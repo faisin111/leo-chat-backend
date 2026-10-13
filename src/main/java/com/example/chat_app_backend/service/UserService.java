@@ -1,15 +1,25 @@
 package com.example.chat_app_backend.service;
 
+import com.example.chat_app_backend.exception.BusinessRuleException;
+import com.example.chat_app_backend.exception.NotFoundException;
+import com.example.chat_app_backend.model.Profile;
 import com.example.chat_app_backend.model.User;
+import com.example.chat_app_backend.payload.request.UpdateProfileRequest;
 import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.payload.response.UserProfileResponse;
+import com.example.chat_app_backend.payload.response.UserSearchResponse;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.util.AppConstants;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,8 +34,7 @@ public class UserService {
     Optional<User> userOpt = userRepository.findById(id);
 
     if (userOpt.isEmpty()) {
-      throw new com.example.chat_app_backend.exception.NotFoundException(
-          AppConstants.ERR_USER_NOT_FOUND);
+      throw new NotFoundException(AppConstants.ERR_USER_NOT_FOUND);
     }
 
     User user = userOpt.get();
@@ -51,21 +60,19 @@ public class UserService {
     return getUserById(userDetails.getId());
   }
 
-  public ResponseEntity<MessageResponse> updateProfile(
-      com.example.chat_app_backend.payload.request.UpdateProfileRequest request) {
+  public ResponseEntity<MessageResponse> updateProfile(UpdateProfileRequest request) {
     UserDetailsImpl userDetails =
         (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     Optional<User> userOpt = userRepository.findById(userDetails.getId());
 
     if (userOpt.isEmpty()) {
-      throw new com.example.chat_app_backend.exception.NotFoundException(
-          AppConstants.ERR_USER_NOT_FOUND);
+      throw new NotFoundException(AppConstants.ERR_USER_NOT_FOUND);
     }
 
     User user = userOpt.get();
-    com.example.chat_app_backend.model.Profile profile = user.getProfile();
+    Profile profile = user.getProfile();
     if (profile == null) {
-      profile = new com.example.chat_app_backend.model.Profile(user);
+      profile = new Profile(user);
       user.setProfile(profile);
     }
 
@@ -87,11 +94,10 @@ public class UserService {
         (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     User user = userRepository.findById(userDetails.getId()).orElse(null);
     if (user == null) {
-      throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
+      throw new NotFoundException("Error: User not found.");
     }
     if ("ADMIN".equals(user.getRole())) {
-      throw new com.example.chat_app_backend.exception.BusinessRuleException(
-          "BUSINESS_RULE: Transfer ownership first");
+      throw new BusinessRuleException("BUSINESS_RULE: Transfer ownership first");
     }
     user.setStatus("DISABLED");
     userRepository.save(user);
@@ -99,23 +105,21 @@ public class UserService {
     return ResponseEntity.ok(new MessageResponse("Account deactivated successfully"));
   }
 
-  public ResponseEntity<List<com.example.chat_app_backend.payload.response.UserSearchResponse>> searchUsers(String query, int page, int size) {
+  public ResponseEntity<List<UserSearchResponse>> searchUsers(String query, int page, int size) {
     if (query == null || query.trim().length() < 2) {
-      throw new com.example.chat_app_backend.exception.BusinessRuleException(
-          "Search query must be at least 2 characters");
+      throw new BusinessRuleException("Search query must be at least 2 characters");
     }
 
-    org.springframework.data.domain.Pageable pageable =
-        org.springframework.data.domain.PageRequest.of(page, size);
-    org.springframework.data.domain.Page<User> users =
+    Pageable pageable = PageRequest.of(page, size);
+    Page<User> users =
         userRepository.findByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(
             query.trim(), query.trim(), pageable);
 
-    List<com.example.chat_app_backend.payload.response.UserSearchResponse> responses =
+    List<UserSearchResponse> responses =
         users.stream()
             .map(
                 user ->
-                    new com.example.chat_app_backend.payload.response.UserSearchResponse(
+                    new UserSearchResponse(
                         user.getId(),
                         user.getUsername(),
                         user.getDisplayName(),
@@ -130,13 +134,13 @@ public class UserService {
     return ResponseEntity.ok(responses);
   }
 
-  public ResponseEntity<List<java.util.Map<String, Object>>> getPresence(List<UUID> ids) {
+  public ResponseEntity<List<Map<String, Object>>> getPresence(List<UUID> ids) {
     List<User> users = userRepository.findAllById(ids);
-    List<java.util.Map<String, Object>> presenceList =
+    List<Map<String, Object>> presenceList =
         users.stream()
             .map(
                 u -> {
-                  java.util.Map<String, Object> map = new java.util.HashMap<>();
+                  Map<String, Object> map = new HashMap<>();
                   map.put("userId", u.getId());
                   map.put("lastSeenAt", u.getLastSeenAt());
                   map.put("status", u.getStatus());
@@ -145,14 +149,14 @@ public class UserService {
             .toList();
     return ResponseEntity.ok(presenceList);
   }
-  
-  public ResponseEntity<List<java.util.Map<String, Object>>> getSessions(UUID userId) {
+
+  public ResponseEntity<List<Map<String, Object>>> getSessions(UUID userId) {
     // Pure stateless: sessions are not stored in database
     return ResponseEntity.ok(List.of());
   }
 
   public ResponseEntity<MessageResponse> logoutSession(UUID userId, UUID sessionId) {
     // Pure stateless: individual sessions are not stored in database
-    return ResponseEntity.ok(new MessageResponse("Session logged out successfully"));
+    throw new BusinessRuleException("Remote logout is unsupported for fully stateless tokens");
   }
 }

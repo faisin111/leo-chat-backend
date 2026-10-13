@@ -1,6 +1,7 @@
 package com.example.chat_app_backend.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -21,13 +22,22 @@ import org.springframework.security.access.prepost.PreAuthorize;
             description =
                 "REST API documentation for ChatApp Backend. See PROJECT_DOCUMENTATION.md for details.",
             contact = @Contact(name = "Development Team")),
-    security = {@SecurityRequirement(name = "bearerAuth")})
+    security = {
+      @SecurityRequirement(name = "bearerAuth"),
+      @SecurityRequirement(name = "cookieAuth")
+    })
 @SecurityScheme(
     name = "bearerAuth",
     type = SecuritySchemeType.HTTP,
     scheme = "bearer",
     bearerFormat = "JWT",
     description = "JWT Bearer token authentication. Please enter your access token below.")
+@SecurityScheme(
+    name = "cookieAuth",
+    type = SecuritySchemeType.APIKEY,
+    in = SecuritySchemeIn.COOKIE,
+    paramName = "leo_chat_jwt",
+    description = "Browser access JWT cookie; browser writes also require X-XSRF-TOKEN")
 public class OpenApiConfig {
 
   @Bean

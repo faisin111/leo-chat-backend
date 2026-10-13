@@ -1,7 +1,9 @@
 package com.example.chat_app_backend.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
@@ -10,18 +12,22 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailService {
 
-  @Autowired private JavaMailSender mailSender;
+  private static final Logger log = LoggerFactory.getLogger(EmailService.class);
+  private final JavaMailSender mailSender;
 
-  @Value("${app.public.url:http://localhost:8080}")
+  public EmailService(JavaMailSender mailSender) {
+    this.mailSender = mailSender;
+  }
+
+  @Value("${app.public.url:http://localhost:3000}")
   private String publicUrl;
 
-  @Value("${spring.mail.username:noreply@example.com}")
+  @Value("${app.mail.from-address:noreply@example.com}")
   private String fromAddress;
 
   @Async
   public void sendVerificationEmail(String toEmail, String token) {
     String verificationUrl = publicUrl + "/verify-email?token=" + token;
-        System.out.println("\n=== DEV MODE: VERIFICATION TOKEN ===\n" + token + "\n====================================\n");
 
     SimpleMailMessage message = new SimpleMailMessage();
     message.setFrom(fromAddress);
@@ -36,9 +42,8 @@ public class EmailService {
 
     try {
       mailSender.send(message);
-      System.out.println("Email successfully sent to " + toEmail);
-    } catch (Exception e) {
-      System.err.println("Failed to send email to " + toEmail + ": " + e.getMessage());
+    } catch (MailException e) {
+      log.warn("verification_email_delivery_failed");
       // We log but don't crash, so the token is still saved and can be retried
     }
   }
@@ -46,7 +51,6 @@ public class EmailService {
   @Async
   public void sendPasswordResetEmail(String toEmail, String token) {
     String resetUrl = publicUrl + "/reset-password?token=" + token;
-    System.out.println("\n=== DEV MODE: PASSWORD RESET TOKEN ===\n" + token + "\n======================================\n");
 
     SimpleMailMessage message = new SimpleMailMessage();
     message.setFrom(fromAddress);
@@ -61,8 +65,8 @@ public class EmailService {
 
     try {
       mailSender.send(message);
-    } catch (Exception e) {
-      System.err.println("Failed to send password reset email to " + toEmail);
+    } catch (MailException e) {
+      log.warn("password_reset_email_delivery_failed");
     }
   }
 }

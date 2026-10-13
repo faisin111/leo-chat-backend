@@ -1,12 +1,17 @@
 package com.example.chat_app_backend.security;
 
+import com.example.chat_app_backend.security.jwt.AuthCookieProperties;
+import com.example.chat_app_backend.security.jwt.AuthCookies;
 import com.example.chat_app_backend.security.jwt.AuthTokenFilter;
+import com.example.chat_app_backend.security.jwt.JwtUtils;
 import com.example.chat_app_backend.security.jwt.RestAccessDeniedHandler;
 import com.example.chat_app_backend.security.jwt.RestAuthenticationEntryPoint;
 import com.example.chat_app_backend.security.services.UserDetailsServiceImpl;
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -17,19 +22,37 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
 public class WebSecurityConfig {
-  @Autowired UserDetailsServiceImpl userDetailsService;
+  private final UserDetailsServiceImpl userDetailsService;
+  private final RestAuthenticationEntryPoint unauthorizedHandler;
+  private final RestAccessDeniedHandler accessDeniedHandler;
+  private final AuthCookies cookies;
+  private final JwtUtils jwtUtils;
 
-  @Autowired private RestAuthenticationEntryPoint unauthorizedHandler;
-
-  @Autowired private RestAccessDeniedHandler accessDeniedHandler;
+  public WebSecurityConfig(
+      UserDetailsServiceImpl userDetailsService,
+      RestAuthenticationEntryPoint unauthorizedHandler,
+      RestAccessDeniedHandler accessDeniedHandler,
+      JwtUtils jwtUtils,
+      AuthCookies cookies) {
+    this.userDetailsService = userDetailsService;
+    this.unauthorizedHandler = unauthorizedHandler;
+    this.accessDeniedHandler = accessDeniedHandler;
+    this.cookies = cookies;
+    this.jwtUtils = jwtUtils;
+  }
 
   @Bean
   public AuthTokenFilter authenticationJwtTokenFilter() {
-    return new AuthTokenFilter();
+    return new AuthTokenFilter(jwtUtils, userDetailsService, cookies);
   }
 
   @Bean
@@ -48,31 +71,47 @@ public class WebSecurityConfig {
 
   @Bean
   public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
+    return new BCryptPasswordEncoder(12);
   }
 
   @Bean
-  public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
-    org.springframework.web.cors.CorsConfiguration configuration =
-        new org.springframework.web.cors.CorsConfiguration();
-    configuration.setAllowedOrigins(
-        java.util.List.of(
-            "http://localhost:3000", "https://your-frontend-domain.com")); // Lock to known origins
-    configuration.setAllowedMethods(
-        java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+  public CorsConfigurationSource corsConfigurationSource(
+      @Value("${app.cors.allowed-origins:http://localhost:3000}") String[] allowedOrigins) {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOrigins(List.of(allowedOrigins)); // Lock to known origins
+    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(
-        java.util.List.of("Authorization", "Cache-Control", "Content-Type"));
+        List.of("Authorization", "Cache-Control", "Content-Type", "X-XSRF-TOKEN"));
     configuration.setAllowCredentials(true);
-    org.springframework.web.cors.UrlBasedCorsConfigurationSource source =
-        new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
     return source;
   }
 
   @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        .csrf(csrf -> csrf.disable())
+  public SecurityFilterChain filterChain(
+      HttpSecurity http,
+      CorsConfigurationSource corsConfigurationSource,
+      AuthCookieProperties cookieProperties)
+      throws Exception {
+    CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+    csrfRepository.setCookieCustomizer(
+        builder ->
+            builder
+                .path("/")
+                .secure(cookieProperties.secure())
+                .sameSite(cookieProperties.sameSite())
+                .httpOnly(false));
+    http.cors(cors -> cors.configurationSource(corsConfigurationSource))
+        .csrf(
+            csrf ->
+                csrf.csrfTokenRepository(csrfRepository)
+                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                    .requireCsrfProtectionMatcher(new BrowserCsrfMatcher(cookies)))
+        .requestCache(cache -> cache.disable())
+        .formLogin(form -> form.disable())
+        .httpBasic(basic -> basic.disable())
+        .logout(logout -> logout.disable())
         .headers(
             headers ->
                 headers
@@ -88,7 +127,18 @@ public class WebSecurityConfig {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/api/v1/auth/**")
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf")
+                    .permitAll()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/auth/register",
+                        "/api/v1/auth/login",
+                        "/api/v1/auth/logout",
+                        "/api/v1/auth/refresh",
+                        "/api/v1/auth/forgot-password",
+                        "/api/v1/auth/reset-password",
+                        "/api/v1/auth/verify-email",
+                        "/api/v1/auth/resend-verification")
                     .permitAll()
                     .requestMatchers(
                         "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")

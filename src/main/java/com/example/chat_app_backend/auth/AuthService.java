@@ -1,15 +1,24 @@
 package com.example.chat_app_backend.auth;
 
+import com.example.chat_app_backend.auth.dto.ChangePasswordRequest;
+import com.example.chat_app_backend.auth.dto.ForgotPasswordRequest;
 import com.example.chat_app_backend.auth.dto.LoginRequest;
 import com.example.chat_app_backend.auth.dto.RegisterRequest;
+import com.example.chat_app_backend.auth.dto.RegisterResponse;
+import com.example.chat_app_backend.auth.dto.ResetPasswordRequest;
 import com.example.chat_app_backend.auth.dto.TokenResponse;
+import com.example.chat_app_backend.auth.dto.VerifyEmailRequest;
+import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ConflictException;
 import com.example.chat_app_backend.exception.UnauthorizedException;
 import com.example.chat_app_backend.model.User;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.jwt.JwtUtils;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
+import com.example.chat_app_backend.service.EmailService;
 import com.example.chat_app_backend.util.AppConstants;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,10 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthService {
 
-  private final com.example.chat_app_backend.service.EmailService emailService;
+  private final EmailService emailService;
 
-  private static final String ADMIN_LOWER = "admin";
-  private static final String ROLE_ADMIN_LOWER = "role_admin";
   private static final String ERR_USER_NOT_FOUND = "User not found";
   private static final String ERR_INVALID_REFRESH_TOKEN = "INVALID_REFRESH_TOKEN";
 
@@ -38,7 +45,7 @@ public class AuthService {
       PasswordEncoder encoder,
       AuthenticationManager authenticationManager,
       JwtUtils jwtUtils,
-      com.example.chat_app_backend.service.EmailService emailService) {
+      EmailService emailService) {
     this.userRepository = userRepository;
     this.encoder = encoder;
     this.authenticationManager = authenticationManager;
@@ -47,8 +54,7 @@ public class AuthService {
   }
 
   @Transactional
-  public com.example.chat_app_backend.auth.dto.RegisterResponse registerUser(
-      RegisterRequest signUpRequest) {
+  public RegisterResponse registerUser(RegisterRequest signUpRequest) {
     if (userRepository.existsByUsername(signUpRequest.username())) {
       throw new ConflictException(AppConstants.ERR_USERNAME_TAKEN);
     }
@@ -58,9 +64,6 @@ public class AuthService {
     }
 
     String role = AppConstants.ROLE_USER;
-    if (!userRepository.existsByRole(AppConstants.ROLE_ADMIN)) {
-      role = AppConstants.ROLE_ADMIN;
-    }
 
     User user =
         new User(
@@ -78,12 +81,12 @@ public class AuthService {
     String token = jwtUtils.generateEmailVerificationToken(user.getEmail());
     emailService.sendVerificationEmail(user.getEmail(), token);
 
-    return new com.example.chat_app_backend.auth.dto.RegisterResponse(
+    return new RegisterResponse(
         user.getId(), user.getUsername(), user.getDisplayName(), user.getRole());
   }
 
   @Transactional
-  public TokenResponse login(LoginRequest loginRequest, String deviceInfo) {
+  public TokenResponse login(LoginRequest loginRequest) {
     Authentication authentication =
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
@@ -95,11 +98,12 @@ public class AuthService {
             .findById(userDetails.getId())
             .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
-    return issueTokens(user);
+    requireActive(user);
+    return issueTokens(user, null);
   }
 
   @Transactional
-  public TokenResponse refresh(String rawRefreshToken, String deviceInfo) {
+  public TokenResponse refresh(String rawRefreshToken) {
     if (!jwtUtils.validateRefreshToken(rawRefreshToken)) {
       throw new UnauthorizedException(ERR_INVALID_REFRESH_TOKEN);
     }
@@ -110,119 +114,121 @@ public class AuthService {
             .findByUsername(username)
             .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
-    if ("DISABLED".equals(user.getStatus())) {
-      throw new UnauthorizedException("User account is disabled");
-    }
-
-    return issueTokens(user);
+    requireActive(user);
+    return issueTokens(user, jwtUtils.refreshExpiresAt(rawRefreshToken));
   }
 
-  @Transactional
-  public void logout(String rawRefreshToken) {
-    // Pure stateless: tokens are not stored in database. Client clears cookies.
-  }
-
-  @Transactional
+  /** Fully stateless tokens cannot be revoked at the server. */
   public void logoutAll(UUID userId) {
-    // Pure stateless: tokens are not stored in database. Client clears cookies.
+    throw new BusinessRuleException("Server-side logout is unsupported for fully stateless tokens");
   }
 
-  private TokenResponse issueTokens(User user) {
-    String accessToken = jwtUtils.generateTokenFromUsername(user.getUsername());
-    String rawRefreshToken = jwtUtils.generateRefreshToken(user.getUsername());
+  private void requireActive(User user) {
+    if (!"ACTIVE".equals(user.getStatus()))
+      throw new UnauthorizedException("User account is not active");
+  }
 
+  private TokenResponse issueTokens(User user, Instant refreshExpiresAt) {
+    String accessToken = jwtUtils.generateTokenFromUsername(user.getUsername());
+    String refreshToken =
+        refreshExpiresAt == null
+            ? jwtUtils.generateRefreshToken(user.getUsername())
+            : jwtUtils.generateRefreshToken(user.getUsername(), refreshExpiresAt);
+    long remainingRefreshSeconds =
+        refreshExpiresAt == null
+            ? jwtUtils.refreshExpiresInSeconds()
+            : Math.max(0, Duration.between(Instant.now(), refreshExpiresAt).getSeconds());
     return new TokenResponse(
-        accessToken, rawRefreshToken, user.getId(), user.getUsername(), user.getEmail());
+        accessToken,
+        "Bearer",
+        refreshToken,
+        jwtUtils.accessExpiresInSeconds(),
+        remainingRefreshSeconds,
+        user.getId(),
+        user.getUsername(),
+        user.getEmail());
   }
 
   @Transactional
-  public void changePassword(
-      UUID userId, com.example.chat_app_backend.auth.dto.ChangePasswordRequest request) {
+  public void changePassword(UUID userId, ChangePasswordRequest request) {
     User user =
-        userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
     if (!encoder.matches(request.currentPassword(), user.getPasswordHash())) {
-      throw new RuntimeException("Invalid current password");
+      throw new UnauthorizedException("Invalid current password");
     }
     user.setPasswordHash(encoder.encode(request.newPassword()));
     user.setMustChangePassword(false);
     userRepository.save(user);
-    logoutAll(userId);
   }
 
-  @Transactional
-  public String forgotPassword(com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-    return userRepository
+  @Transactional(readOnly = true)
+  public void forgotPassword(ForgotPasswordRequest request) {
+    userRepository
         .findByEmail(request.email())
-        .map(
+        .ifPresent(
             user -> {
-              String token = jwtUtils.generatePasswordResetToken(user.getEmail(), user.getPasswordHash());
+              String token =
+                  jwtUtils.generatePasswordResetToken(user.getEmail(), user.getPasswordHash());
               emailService.sendPasswordResetEmail(user.getEmail(), token);
-              return token;
-            })
-        .orElse(null);
+            });
   }
 
   @Transactional
-  public void resetPassword(com.example.chat_app_backend.auth.dto.ResetPasswordRequest request) {
+  public void resetPassword(ResetPasswordRequest request) {
     String email;
     try {
       email = jwtUtils.getEmailFromPasswordResetToken(request.token());
     } catch (Exception e) {
-      throw new RuntimeException("Invalid or expired reset token");
+      throw new UnauthorizedException("Invalid or expired reset token");
     }
 
     User user =
         userRepository
             .findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
     if (!jwtUtils.validatePasswordResetToken(request.token(), user.getPasswordHash())) {
-      throw new RuntimeException("Invalid or expired reset token");
+      throw new UnauthorizedException("Invalid or expired reset token");
     }
 
     user.setPasswordHash(encoder.encode(request.newPassword()));
     user.setMustChangePassword(false);
     userRepository.save(user);
-
-    logoutAll(user.getId());
   }
 
   @Transactional
-  public void verifyEmail(com.example.chat_app_backend.auth.dto.VerifyEmailRequest request) {
+  public void verifyEmail(VerifyEmailRequest request) {
     if (!jwtUtils.validateEmailVerificationToken(request.token())) {
-      throw new RuntimeException("Invalid or expired verification token");
+      throw new UnauthorizedException("Invalid or expired verification token");
     }
 
     String email;
     try {
       email = jwtUtils.getEmailFromVerificationToken(request.token());
     } catch (Exception e) {
-      throw new RuntimeException("Invalid or expired verification token");
+      throw new UnauthorizedException("Invalid or expired verification token");
     }
 
     User user =
         userRepository
             .findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
     user.setEmailVerified(true);
     userRepository.save(user);
-
-    System.out.println("User " + user.getEmail() + " successfully verified email.");
   }
 
-  @Transactional
-  public String resendVerification(
-      com.example.chat_app_backend.auth.dto.ForgotPasswordRequest request) {
-    return userRepository
+  @Transactional(readOnly = true)
+  public void resendVerification(ForgotPasswordRequest request) {
+    userRepository
         .findByEmail(request.email())
-        .map(
+        .filter(user -> !user.isEmailVerified())
+        .ifPresent(
             user -> {
               String token = jwtUtils.generateEmailVerificationToken(user.getEmail());
               emailService.sendVerificationEmail(user.getEmail(), token);
-              return token;
-            })
-        .orElse(null);
+            });
   }
 }
-

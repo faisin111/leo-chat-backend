@@ -286,33 +286,19 @@ class ChatWsController {
 
 ---
 
-## 5. Pattern: JWT Auth + Refresh Rotation
+## 5. Pattern: Stateless JWT Browser Authentication
 
-**Access token:** short-lived JWT, stateless.
-**Refresh token:** random opaque value; only its SHA-256 hash is stored.
+The approved policy stores no JWTs or sessions at the server. The latest user request restores HttpOnly cookie transport for browsers, with Bearer compatibility for API clients.
 
-```java
-@Transactional
-public TokenResponse refresh(String rawRefreshToken) {
-  String hash = Hashing.sha256(rawRefreshToken);
-  RefreshToken token = refreshRepo.findByTokenHash(hash)
-      .orElseThrow(() -> new UnauthorizedException("INVALID_REFRESH_TOKEN"));
-
-  if (token.getRevokedAt() != null || token.getExpiresAt().isBefore(clock.instant())) {
-    throw new UnauthorizedException("INVALID_REFRESH_TOKEN");
-  }
-  if (token.getUsedAt() != null) {                       // reuse = likely theft
-    refreshRepo.revokeFamily(token.getFamilyId(), clock.instant());
-    throw new UnauthorizedException("REFRESH_TOKEN_REUSED");
-  }
-
-  token.setUsedAt(clock.instant());
-  User user = userService.getActive(token.getUserId());
-  return issueTokens(user, token.getFamilyId(), token.getDeviceInfo());   // new access + new refresh, same family
-}
-```
-
-Security filter rules: stateless session, `permitAll` only for `/api/v1/auth/{register,login,refresh}`, `/actuator/health`, and the WS handshake path; everything else `authenticated()`.
+- AuthController sets access and refresh cookies on login/refresh and clears them on logout. TokenResponse remains available as JSON for existing API clients.
+- AuthCookies and AuthCookieProperties centralize cookie names, paths, HttpOnly, Secure and SameSite settings. No cookie Domain is set.
+- Browser writes require cookie-backed CSRF tokens from GET /auth/csrf, sent in X-XSRF-TOKEN. Credentialed CORS permits explicit origins only.
+- AuthTokenFilter reads the access cookie when no Authorization header is supplied. A supplied invalid header never falls back to a valid cookie.
+- Bearer-only requests without auth cookies may skip CSRF; cookie-bearing writes cannot bypass it with a forged Bearer header.
+- Refresh uses its HttpOnly cookie, with JSON fallback. It preserves the original expiry; old JWTs remain valid. Server-wide/device revocation stays unsupported.
+- Recovery responses remain generic and tokens go only by email. Registration creates ROLE_USER; admin bootstrap is explicit.
+- Browser WebSocket handshakes may use the access cookie; native STOMP clients can supply Authorization. Apply the configured origin allowlist.
+- See docs/AUTHENTICATION.md for the current browser/API contract.
 
 ---
 
@@ -654,8 +640,7 @@ public void transferOwnership(UUID adminId, UUID targetId, String password) {
   target.setRole(Role.ADMIN);
   users.saveAndFlush(target);
 
-  refreshTokens.revokeAllForUser(adminId);
-  refreshTokens.revokeAllForUser(targetId);
+  // Fully stateless JWTs remain valid; subsequent requests load current roles.
   sessionCloser.closeAll(adminId, targetId);
   audit.record(adminId, "OWNERSHIP_TRANSFERRED", "USER", targetId, Map.of());
 }

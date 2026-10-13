@@ -61,7 +61,7 @@ Work on **one roadmap item at a time**, in order: Basic → Medium → Advanced.
 - **Always check conversation membership** in the service layer before reading or writing chat data, for REST and WebSocket alike.
 - Never trust IDs or identity from the request body. Take the user ID from the security context.
 - Never log passwords, tokens, secrets, or message content. Never commit secrets. Use environment variables.
-- Hash passwords (BCrypt 12 or Argon2id). Hash refresh tokens before storing.
+- Hash passwords (BCrypt 12 or Argon2id). Approved auth policy: fully stateless JWTs; do not store access or refresh tokens. Browser logout clears cookies; copied JWTs remain valid. Cookie-authenticated writes require CSRF.
 - Validate all input (`@Valid`, size limits). Use parameterized queries only.
 
 ### Real-time correctness
@@ -117,7 +117,7 @@ For small, reversible decisions, choose the option that best follows the documen
 - **Logging:** structured, key=value style, include IDs (`conversationId`, `userId`), never content. Levels: `ERROR` for unexpected failures, `WARN` for handled abnormal cases, `INFO` for key business events, `DEBUG` for details.
 - **Comments:** explain *why*, not *what*. Public service methods get short Javadoc when behavior is non-obvious.
 - **Formatting:** Google Java Style, enforced by Spotless/Checkstyle. Run the formatter before finishing.
-- **Git:** small commits, Conventional Commits (`feat(chat): add idempotent send`, `fix(auth): revoke token family on reuse`).
+- **Git:** small commits, Conventional Commits (`feat(chat): add idempotent send`, `fix(auth): validate bearer token purpose`).
 
 ---
 
