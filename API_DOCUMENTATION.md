@@ -1,10 +1,12 @@
 # Leo Chat Backend - API Documentation
 
+> **Implementation status (2026-10-13):** This endpoint guide includes incomplete behaviors. Refresh issues JWTs without invalidating old refresh tokens; logout clears cookies without server revocation. Session listing and remote logout are stubs. Reactions only log, media URLs are mock values, and presence is account status/last-seen rather than live connection tracking. Conversation cursors are page numbers; message history ignores `afterSeq`. WebSocket subscription authorization remains a repair priority. Consult `PROJECT_DOCUMENTATION.md` section 15 before relying on these features.
+
 ## 1. Project Overview
 Leo Chat is a comprehensive real-time chat application backend built with Spring Boot. It provides a robust set of features suitable for building modern messaging clients (web, desktop, and mobile). 
 
 ### Key Capabilities:
-*   **Authentication & Security:** Secure JWT-based authentication using HTTP-only cookies, token rotation (refresh tokens), email verification, and password recovery.
+*   **Authentication & Security:** Secure JWT-based authentication using HTTP-only cookies, refresh JWT issuance (revocable rotation is planned), email verification, and password recovery.
 *   **User Management:** Profiles, online presence tracking, session management across multiple devices, and user search directory.
 *   **Messaging System:** Support for both 1-on-1 Direct Messages (DMs) and Group Chats. Features include message history, pagination, read receipts, editing/deleting messages, and emoji reactions.
 *   **Media Handling:** Cloud-ready media upload flow using presigned URLs for sending images/files securely.
@@ -16,7 +18,7 @@ Leo Chat is a comprehensive real-time chat application backend built with Spring
 The API uses **HTTP-Only Cookies** for secure authentication. 
 *   Upon calling `/api/v1/auth/login`, the server attaches two cookies to the response: `leo_chat_jwt` (short-lived access token) and `leo_chat_jwt_refresh` (long-lived refresh token).
 *   The frontend does **not** need to manually store or attach tokens in the `Authorization` header. The browser/HTTP client will automatically send the cookies with every request to `/api/v1/*`.
-*   When the access token expires (401 error), the frontend should call `/api/v1/auth/refresh` to rotate the tokens automatically.
+*   When the access token expires (401 error), the frontend should call `/api/v1/auth/refresh` to request new tokens. The old refresh JWT remains valid until expiry.
 
 ---
 
@@ -27,7 +29,7 @@ The API uses **HTTP-Only Cookies** for secure authentication.
 *   `POST /register` - Register a new account.
 *   `POST /refresh` - Generate a new access token using the refresh cookie.
 *   `POST /logout` - Log out the current session and clear cookies.
-*   `POST /logout-all` - Revoke all active sessions for the user across all devices.
+*   `POST /logout-all` - Clear client cookies; server-wide session revocation is not implemented.
 *   `POST /change-password` - Update password (requires current password).
 *   `POST /forgot-password` - Request a password reset link/token.
 *   `POST /reset-password` - Reset password using the provided token.

@@ -2,7 +2,9 @@
 
 This file trains an agent to write **production-quality Spring Boot backend code** for this project. It contains principles, reusable patterns, code templates, and review checklists. Use these templates as the default shape of your code.
 
-Stack: Java 21, Spring Boot 3.x, Spring Security, Spring Data JPA, Flyway, PostgreSQL, Redis, WebSocket/STOMP, JUnit 5, Testcontainers.
+Target stack: Java 21, Spring Boot 3.x, Spring Security, Spring Data JPA, Flyway, PostgreSQL, Redis, WebSocket/STOMP, JUnit 5, Testcontainers.
+
+Current source uses Java 17 and Spring Boot 3.3.4. Redis integration, Testcontainers and several template classes below are not implemented. These patterns describe desired code, not existing files. See `PROJECT_DOCUMENTATION.md` sections 3 and 15 for the current structure and repair plan.
 
 ---
 

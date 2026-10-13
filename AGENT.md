@@ -15,9 +15,11 @@ If the code contradicts the documentation, **the documentation wins**, unless th
 
 ---
 
-## 2. Project Facts (do not change without approval)
+## 2. Project Baseline and Target (do not change without approval)
 
-- Java 21, Spring Boot 3.x, Maven, PostgreSQL 16, Redis 7, Flyway, Spring Security with JWT, WebSocket STOMP.
+- Current baseline: Java 17, Spring Boot 3.3.4, Maven, Compose PostgreSQL 15, Flyway, Spring Security with JWT, WebSocket STOMP.
+- Target: Java 21 and PostgreSQL 16. Compose includes Redis 7 and MinIO, but application integration remains incomplete.
+- Section 15 of `PROJECT_DOCUMENTATION.md` records current gaps. Security and correctness rules below remain target requirements, not claims of implemented behavior.
 - Modular monolith, package-by-feature: `common`, `auth`, `user`, `chat`, `media`, `notification`.
 - Layers: Controller → Service → Repository. DTOs are Java records. Entities never leave the service layer.
 - Base API path `/api/v1`. UTC `Instant` everywhere. Cursor pagination for messages and conversations.
@@ -144,7 +146,7 @@ Run before reporting done:
 
 ```bash
 docker compose up -d              # Postgres, Redis (and MinIO from Phase 2)
-./mvnw spring-boot:run            # run app with the local profile
+./mvnw spring-boot:run            # run app with the default dev profile
 ./mvnw test                       # unit tests
 ./mvnw clean verify               # unit + integration tests + checks
 ./mvnw spotless:apply             # format code

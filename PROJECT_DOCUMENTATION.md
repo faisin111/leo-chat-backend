@@ -1,7 +1,9 @@
 # Chat Application Backend: Complete Project Documentation
 
 > **Audience:** developers and AI agents. This is the single source of truth for architecture, features, data model, APIs, real-time flow, security, testing, and roadmap.
-> **Stack:** Java 21, Spring Boot 3.x, Spring Security (JWT), WebSocket (STOMP), PostgreSQL, Redis.
+> **Current stack:** Java 17, Spring Boot 3.3.4, Maven, Spring Security (JWT), WebSocket (STOMP), PostgreSQL, Flyway.
+> **Target stack:** Java 21, PostgreSQL 16, Redis-backed presence/rate limiting/fan-out, and S3/MinIO media.
+> **Status:** Repository audit dated 2026-10-13. Sections describing security, flows, SQL examples, and completion criteria are target requirements unless explicitly labeled current. See section 15 for implementation gaps.
 > **Related files:** `AGENT.md` (how an agent must behave), `SKILL.md` (how to write the code).
 
 ---
@@ -9,8 +11,8 @@
 ## 0. How to Use This Document
 
 1. Read sections 1 to 4 to understand the goal, the architecture, and the rules.
-2. Check section 15 (Roadmap) to find the current phase and the next task.
-3. For any task, follow the module layout (section 5), the API contract (section 8), and the Definition of Done (section 17).
+2. Read section 15 for the current implementation and repair plan; section 10 defines the feature roadmap.
+3. For any task, follow the module layout (section 3), the API contract (section 8), and the Definition of Done (section 17).
 4. For roles and the single-admin rule read 5.4; for Swagger/OpenAPI rules read section 19 (mandatory for every endpoint).
 5. Never invent behavior that contradicts this document. If something is missing, add it here first, then implement it.
 
@@ -97,11 +99,42 @@ Rules:
 
 ---
 
-## 3. Package Structure (Package-by-Feature)
+## 3. Package Structure
+
+### 3.1 Current repository layout (2026-10-13)
+
+```text
+com.example.chat_app_backend
+├── ChatAppBackendApplication.java
+├── auth                 AuthController, AuthService, dto
+├── chat
+│   ├── conversation     controller, service, repositories, entities, dto
+│   ├── message          controller, service, repository, entities, dto
+│   └── realtime         WebSocketConfig, WsAuthInterceptor, ChatWsController, dto
+├── controller           UserController, MediaController, AdminController
+├── service              UserService, MediaService, AdminService, EmailService
+├── model                User, Profile, Report, AuditLog, UserBlock
+├── repository           UserRepository, ReportRepository, AuditLogRepository
+├── payload              request and response DTOs
+├── security             WebSecurityConfig, jwt, services
+├── advice               GlobalExceptionHandler, ApiError
+├── exception            domain exceptions and older error/advice classes
+├── config               OpenApiConfig, openapi/StandardErrors
+└── util                 AppConstants
+```
+
+Resources use `application.properties` and `application-{dev,prod}.properties`; tests use `application-test.properties`.
+Flyway files live in `src/main/resources/db/migration`. Two test classes currently live directly under the base test package.
+The layout mixes feature packages (`auth`, `chat`) with shared layer packages. There are no dedicated `media`, `notification`, `admin`, or `common` feature packages yet.
+
+### 3.2 Target package-by-feature layout
+
+The following tree is a future organization plan, not the current filesystem. Keep the existing base package during incremental moves unless a rename is explicitly approved. Move one feature at a time after behavior is covered by tests.
+
 
 ```
-com.example.chat
-├── ChatApplication.java
+com.example.chat_app_backend
+├── ChatAppBackendApplication.java
 ├── common
 │   ├── config          (SecurityConfig, WebSocketConfig, RedisConfig, OpenApiConfig, AsyncConfig)
 │   ├── exception       (GlobalExceptionHandler, ApiError, custom exceptions)
@@ -801,22 +834,42 @@ Semantic versioning, `CHANGELOG.md`, Docker image tagged with the git SHA, Flywa
 
 ---
 
-## 15. Current-State Audit and Improvement Plan (for the existing project)
+## 15. Current-State Audit and Improvement Plan
 
-The project already has auth, some endpoints, and real-time chat, but quality is low. Run this **before adding new features**:
+### 15.1 Verified repository state (2026-10-13)
 
-1. **Inventory:** list existing endpoints and map them to section 8. Note the gaps.
-2. **Structure:** refactor into the package-by-feature layout (section 3). Remove business logic from controllers.
-3. **DTOs:** stop returning entities. Introduce request/response records and MapStruct.
-4. **Errors:** add `GlobalExceptionHandler` with the standard format (9.3).
-5. **Auth hardening:** move to access+refresh with rotation, add password hashing check, rate limits.
-6. **Schema:** move to Flyway; add `seq`, `client_message_id`, unique constraints, indexes.
-7. **Real-time:** implement the flow in 7.2 (persist → ack → broadcast after commit), WS auth interceptor, subscription authorization.
-8. **Tests:** add the mandatory tests from section 13.
-9. **Config:** externalize secrets, add profiles, Dockerize.
-10. **Docs:** OpenAPI annotations, README quick start.
+This is a source inspection, not a passing build or production readiness assessment. No tests were run for this documentation update.
 
-Only after Basic exit criteria pass, start Medium.
+| Area | Current implementation | Gap against target |
+|---|---|---|
+| Runtime/infrastructure | Java 17 in Maven, Docker and CI; Boot 3.3.4; Compose PostgreSQL 15, Redis 7, MinIO | Java 21/PostgreSQL 16 are planned upgrades; Redis and object storage are not integrated into application services |
+| Structure | Mixed feature and layer packages; manual DTO mapping; some services return `ResponseEntity` | Target feature boundaries, constructor injection and DTO-only service contracts are not consistently enforced |
+| Auth | Access and refresh JWTs; HttpOnly cookies; email verification and password reset code | Refresh does not invalidate the previous JWT; logout/logout-all have no server revocation; session listing returns empty and remote logout is a stub |
+| Admin | Stored roles use `ROLE_USER`/`ROLE_ADMIN`; first registration becomes admin when none exists | No `AdminBootstrapRunner`; transfer only sets target role without demoting owner, password check, session revocation or audit in that method |
+| Messages | Membership checks on send/history/get; sequence increment; duplicate lookup; edit/delete and read pointer updates | Broadcast occurs inside transaction; duplicate lookup precedes authorization; concurrent retry handling requires tests; read pointer update needs DB-level concurrency protection |
+| Pagination | History filters by `beforeSeq`; conversation cursor is a page number | `afterSeq` is ignored; history loads all matching rows before Java limit; conversation pagination uses offsets |
+| WebSocket | Simple in-process broker; CONNECT token parsing; message ACK and typing broadcast | Invalid/missing CONNECT token is not explicitly rejected; no SUBSCRIBE membership authorization; typing lacks membership checks; origins allow `*` |
+| Product features | DM/group APIs, profile/search, presence endpoint, admin/report APIs | Presence returns account status/last-seen rather than connection tracking; reactions only log; media returns mock URLs; blocking, mentions and rate limiting need implementation evidence |
+| Database | V0 through V5 migration files; single-admin partial index uses `ROLE_ADMIN` | V0 is a placeholder without table creation; later files require existing tables; V5 drops refresh_tokens; section 6 SQL is a target example, not the deployed schema |
+| Admin responses | Some list/detail methods return User, Conversation, Report or AuditLog entities | Replace with explicit response DTOs and verify privacy and authorization |
+| Tests/CI | AuthServiceTest and H2 context smoke test; Flyway disabled in test; Maven verify in CI | No PostgreSQL/Testcontainers, STOMP, concurrency or OpenAPI contract tests found; CI swallows formatter and dependency-scan failures |
+| Observability | Actuator dependency and endpoint exposure settings | Prometheus exporter dependency, dashboards and distributed tracing are not established by current source |
+
+Actual migration inventory: `V0__init.sql`, `V1__single_admin.sql`, `V2__indexes.sql`, `V3__add_email_verified.sql`, `V4__drop_profile_url_from_users.sql`, `V5__drop_refresh_tokens.sql`.
+Do not edit applied migrations. Reconcile existing database history before designing an additive repair or a fresh-install baseline.
+
+### 15.2 Ordered repair plan
+
+1. **B10/B11: establish a reliable baseline.** Inspect actual database history, repair fresh-install migration support without rewriting applied files, run `./mvnw clean verify`, and add PostgreSQL migration tests. Make formatter failures fail CI.
+2. **B1/B2/B12: repair auth and admin lifecycle.** Restore revocable refresh sessions with additive migrations, enforce rotation/reuse detection, implement logout and device revocation, replace first-registration admin creation with bootstrap, and make ownership transfer atomic and audited. Review existing admin safety/privacy checks.
+3. **B6/B9: secure real-time access.** Reject unauthenticated CONNECT/SEND/SUBSCRIBE, authorize subscription and typing destinations, configure explicit origins, and test REST and STOMP membership failures.
+4. **B5/B6/B7/B8: prove messaging correctness.** Authorize before duplicate return, handle concurrent retries, broadcast after commit, implement bounded before/after history and stable conversation cursors, and test DM uniqueness and sequence allocation.
+5. **B9/B13: enforce contracts.** Replace entity responses and raw service HTTP responses with DTOs, standardize errors/validation, and add OpenAPI contract coverage.
+6. **Medium phase:** complete presence, typing, read receipts, reactions, mentions, real media, blocking, rate limiting and reconnect sync. Treat existing scaffolds as incomplete until behavior and tests satisfy exit criteria.
+7. **Structure cleanup:** move user, admin, media and common infrastructure into feature packages incrementally. Consolidate duplicate DTO/error types with compatibility checks. Avoid a global package rename or simultaneous behavior refactor.
+8. **Advanced phase:** implement multi-instance delivery, push, search and operations only after Basic and Medium exit criteria pass. Actuator or an exposed endpoint alone does not complete observability.
+
+The Java 21 and PostgreSQL 16 upgrades remain planned. This documentation update does not change dependencies, infrastructure, API paths, or the authentication model.
 
 ---
 

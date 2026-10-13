@@ -1,6 +1,8 @@
 # Leo Chat Backend
 
-A real-time, highly scalable chat backend built with Spring Boot 3, WebSocket (STOMP), PostgreSQL, and Redis.
+A chat backend built with Java 17, Spring Boot 3.3.4, WebSocket (STOMP), PostgreSQL, and Flyway.
+
+**Status (2026-10-13):** Core APIs exist, but security, migrations and several product features need repairs. See [current audit and plan](PROJECT_DOCUMENTATION.md#15-current-state-audit-and-improvement-plan). Redis and MinIO run in Compose but are not integrated into application services.
 
 ## Quick Start (Local Development)
 
@@ -21,7 +23,7 @@ cp .env.example .env
 ```
 
 ### 3. Run the Application
-Start the Spring Boot server. Flyway will automatically handle database migrations.
+Start the Spring Boot server with the default `dev` profile. Flyway runs on startup, but `V0__init.sql` does not create tables. A fresh database requires migration repair before this setup is reliable.
 ```bash
 ./mvnw spring-boot:run
 ```
@@ -33,16 +35,17 @@ Once the server is running, explore the API endpoints using Swagger UI:
 - **Swagger UI:** `http://localhost:8080/swagger-ui.html`
 - **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
 
-## Features Implemented
-- **JWT Authentication:** Secure stateless access/refresh token rotation using HttpOnly cookies.
-- **Real-time Messaging:** STOMP over WebSocket with custom `WsAuthInterceptor` for session authorization.
-- **Conversations & Groups:** 1-to-1 Direct Messages and Group Chats with member RBAC (Owner, Admin, Member).
-- **Cursor Pagination:** Fast, gapless pagination for messages and conversations.
-- **Admin Moderation:** Lock conversations, ban users, delete messages, and view system stats.
-- **Performance Optimized:** Configured with HikariCP, database B-Tree indexes, and WebSocket thread pools.
+## Current Implementation
+
+- JWT authentication with HttpOnly cookies; refresh-token revocation and server-side logout remain unimplemented.
+- REST and STOMP message sending with database persistence and sender ACKs; after-commit broadcast and subscription authorization need repairs.
+- Direct/group conversations, profile/search, message history, read pointers, edit/delete and admin endpoints exist.
+- Conversation pagination uses page offsets. Message `afterSeq` sync is not implemented.
+- Reactions, device sessions and media storage remain stubs.
+- Current package map and ordered repair plan live in `PROJECT_DOCUMENTATION.md`, sections 3 and 15.
 
 ## Testing
-Run the unit and web-slice tests using:
+Current tests cover auth service behavior and an H2 application-context smoke test. Run them using:
 ```bash
 ./mvnw test
 ```
