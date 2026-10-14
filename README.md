@@ -46,6 +46,7 @@ Once the server is running, explore the API endpoints using Swagger UI:
 - Conversation pagination uses page offsets. Message history supports bounded `beforeSeq` and ascending `afterSeq` sync.
 - Reactions persist. Device sessions are intentionally unsupported; image media uses private Supabase Storage URLs.
 - Current package map and ordered repair plan live in `PROJECT_DOCUMENTATION.md`, sections 3 and 15.
+- Frontend integration guide with every HTTP/WebSocket route, payload, response, and error code: `FRONTEND_API.md`.
 
 ## Testing
 Tests cover auth behavior, message services, all eight message REST routes, STOMP delivery/authorization, concurrent sends/retries and message OpenAPI metadata on H2. PostgreSQL migration validation remains outstanding. Run them using:
