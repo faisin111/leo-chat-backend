@@ -127,6 +127,10 @@ Resources use `application.properties` and `application-{dev,prod}.properties`; 
 Flyway files live in `src/main/resources/db/migration`. Two test classes currently live directly under the base test package.
 The layout mixes feature packages (`auth`, `chat`) with shared layer packages. There are no dedicated `media`, `notification`, `admin`, or `common` feature packages yet.
 
+### Current package architecture
+
+Shared cross-feature code now lives under `common`: `common/constants` owns stable roles and API-wide constants, while `common/enums` owns persisted status and membership values. Feature code stays grouped by capability (`auth`, `chat`, `config/storage`) and cross-cutting HTTP adapters remain in `controller`, `advice`, `security`, and `exception`. The legacy `util.AppConstants` class is a deprecated compatibility facade; new code must import `common.constants.AppConstants`.
+
 ### 3.2 Target package-by-feature layout
 
 The following tree is a future organization plan, not the current filesystem. Keep the existing base package during incremental moves unless a rename is explicitly approved. Move one feature at a time after behavior is covered by tests.

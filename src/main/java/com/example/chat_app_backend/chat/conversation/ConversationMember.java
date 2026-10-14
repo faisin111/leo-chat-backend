@@ -1,5 +1,6 @@
 package com.example.chat_app_backend.chat.conversation;
 
+import com.example.chat_app_backend.common.enums.ConversationMemberRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -13,7 +14,7 @@ public class ConversationMember {
   @EmbeddedId private ConversationMemberId id;
 
   @Column(length = 10, nullable = false)
-  private String role = "MEMBER";
+  private String role = ConversationMemberRole.MEMBER.name();
 
   @Column(nullable = false)
   private long lastReadSeq = 0;

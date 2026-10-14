@@ -10,7 +10,8 @@ import com.example.chat_app_backend.payload.response.UserProfileResponse;
 import com.example.chat_app_backend.payload.response.UserSearchResponse;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
-import com.example.chat_app_backend.util.AppConstants;
+import com.example.chat_app_backend.common.constants.AppConstants;
+import com.example.chat_app_backend.common.enums.UserStatus;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -99,7 +100,7 @@ public class UserService {
     if ("ADMIN".equals(user.getRole())) {
       throw new BusinessRuleException("BUSINESS_RULE: Transfer ownership first");
     }
-    user.setStatus("DISABLED");
+    user.setStatus(UserStatus.DISABLED.name());
     userRepository.save(user);
 
     return ResponseEntity.ok(new MessageResponse("Account deactivated successfully"));

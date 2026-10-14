@@ -1,6 +1,9 @@
 package com.example.chat_app_backend.service;
 
 import com.example.chat_app_backend.auth.AuthService;
+import com.example.chat_app_backend.common.constants.AppConstants;
+import com.example.chat_app_backend.common.enums.ReportStatus;
+import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.chat.conversation.Conversation;
 import com.example.chat_app_backend.chat.conversation.ConversationRepository;
 import com.example.chat_app_backend.chat.message.Message;
@@ -92,7 +95,7 @@ public class AdminService {
       throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
     }
     User user = userOpt.get();
-    if ("ROLE_ADMIN".equals(user.getRole())) {
+    if (AppConstants.ROLE_ADMIN.equals(user.getRole())) {
       throw new com.example.chat_app_backend.exception.ForbiddenException(
           "Error: Cannot target admin.");
     }
@@ -116,12 +119,12 @@ public class AdminService {
       throw new com.example.chat_app_backend.exception.NotFoundException("Error: User not found.");
     }
     User user = userOpt.get();
-    if ("ROLE_ADMIN".equals(user.getRole())) {
+    if (AppConstants.ROLE_ADMIN.equals(user.getRole())) {
       throw new com.example.chat_app_backend.exception.ForbiddenException(
           "Error: Cannot target admin.");
     }
 
-    user.setStatus("DELETED");
+    user.setStatus(UserStatus.DELETED.name());
     user.setUsername("deleted_" + UUID.randomUUID().toString().substring(0, 8));
     user.setEmail("deleted_" + UUID.randomUUID().toString().substring(0, 8) + "@deleted.com");
     if (user.getProfile() != null) {
@@ -205,7 +208,7 @@ public class AdminService {
                     new com.example.chat_app_backend.exception.NotFoundException(
                         "Report not found"));
 
-    report.setStatus("RESOLVED");
+    report.setStatus(ReportStatus.RESOLVED.name());
     report.setResolution(request.resolution());
     report.setResolvedAt(java.time.Instant.now());
     reportRepository.save(report);
@@ -263,7 +266,7 @@ public class AdminService {
         userRepository
             .findById(actorId)
             .orElseThrow(() -> new ForbiddenException("Active admin account required"));
-    if (!"ROLE_ADMIN".equals(actor.getRole())
+    if (!AppConstants.ROLE_ADMIN.equals(actor.getRole())
         || !passwordEncoder.matches(request.password(), actor.getPasswordHash())) {
       throw new ForbiddenException("Current admin credentials are invalid");
     }
@@ -277,15 +280,15 @@ public class AdminService {
     if (actorId.equals(targetUser.getId())) {
       throw new BusinessRuleException("Target must be a different user");
     }
-    if (!"ACTIVE".equals(targetUser.getStatus())) {
+    if (!UserStatus.ACTIVE.name().equals(targetUser.getStatus())) {
       throw new BusinessRuleException("Target user must be active");
     }
-    if ("ROLE_ADMIN".equals(targetUser.getRole())) {
+    if (AppConstants.ROLE_ADMIN.equals(targetUser.getRole())) {
       throw new BusinessRuleException("Target user is already an admin");
     }
-    actor.setRole("ROLE_USER");
+    actor.setRole(AppConstants.ROLE_USER);
     userRepository.saveAndFlush(actor);
-    targetUser.setRole("ROLE_ADMIN");
+    targetUser.setRole(AppConstants.ROLE_ADMIN);
     userRepository.save(targetUser);
 
     return ResponseEntity.ok(new MessageResponse("Ownership transferred successfully."));

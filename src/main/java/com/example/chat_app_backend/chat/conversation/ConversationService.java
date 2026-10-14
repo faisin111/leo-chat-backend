@@ -7,6 +7,7 @@ import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
 import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
+import com.example.chat_app_backend.common.enums.ConversationMemberRole;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
@@ -193,7 +194,8 @@ public class ConversationService {
     Conversation c =
         conversationRepository.findById(id).orElseThrow(() -> new NotFoundException("Not found"));
     ConversationMember mem = requireActiveMember(id, userId);
-    if (!"OWNER".equals(mem.getRole()) && !"ADMIN".equals(mem.getRole()))
+    if (!ConversationMemberRole.OWNER.name().equals(mem.getRole())
+        && !ConversationMemberRole.ADMIN.name().equals(mem.getRole()))
       throw new ForbiddenException("Only owners and admins can update a group");
 
     if (request.title() != null) c.setTitle(request.title());
@@ -223,7 +225,8 @@ public class ConversationService {
   @Transactional
   public void addMembers(UUID userId, UUID id, AddMembersRequest request) {
     ConversationMember mem = requireActiveMember(id, userId);
-    if (!"OWNER".equals(mem.getRole()) && !"ADMIN".equals(mem.getRole()))
+    if (!ConversationMemberRole.OWNER.name().equals(mem.getRole())
+        && !ConversationMemberRole.ADMIN.name().equals(mem.getRole()))
       throw new ForbiddenException("Only owners and admins can add members");
     for (UUID mId : request.memberIds()) {
       if (userRepository.existsById(mId)) {
@@ -245,7 +248,8 @@ public class ConversationService {
   public void removeMember(UUID userId, UUID id, UUID targetId) {
     if (!userId.equals(targetId)) {
       ConversationMember mem = requireActiveMember(id, userId);
-      if (!"OWNER".equals(mem.getRole()) && !"ADMIN".equals(mem.getRole()))
+      if (!ConversationMemberRole.OWNER.name().equals(mem.getRole())
+          && !ConversationMemberRole.ADMIN.name().equals(mem.getRole()))
         throw new ForbiddenException("Only owners and admins can remove members");
     }
     ConversationMember target = requireActiveMember(id, targetId);

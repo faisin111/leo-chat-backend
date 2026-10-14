@@ -8,6 +8,8 @@ import com.example.chat_app_backend.auth.dto.RegisterResponse;
 import com.example.chat_app_backend.auth.dto.ResetPasswordRequest;
 import com.example.chat_app_backend.auth.dto.TokenResponse;
 import com.example.chat_app_backend.auth.dto.VerifyEmailRequest;
+import com.example.chat_app_backend.common.constants.AppConstants;
+import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ConflictException;
 import com.example.chat_app_backend.exception.UnauthorizedException;
@@ -16,7 +18,6 @@ import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.jwt.JwtUtils;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.service.EmailService;
-import com.example.chat_app_backend.util.AppConstants;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -124,7 +125,7 @@ public class AuthService {
   }
 
   private void requireActive(User user) {
-    if (!"ACTIVE".equals(user.getStatus()))
+    if (!UserStatus.ACTIVE.name().equals(user.getStatus()))
       throw new UnauthorizedException("User account is not active");
   }
 

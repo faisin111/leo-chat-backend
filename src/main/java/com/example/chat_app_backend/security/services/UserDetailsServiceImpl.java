@@ -1,5 +1,6 @@
 package com.example.chat_app_backend.security.services;
 
+import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.model.User;
 import com.example.chat_app_backend.repository.UserRepository;
 import org.springframework.security.authentication.DisabledException;
@@ -23,7 +24,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             .findByUsername(username)
             .orElseThrow(
                 () -> new UsernameNotFoundException("User Not Found with username: " + username));
-    if (!"ACTIVE".equals(user.getStatus()))
+    if (!UserStatus.ACTIVE.name().equals(user.getStatus()))
       throw new DisabledException("User account is not active");
     return UserDetailsImpl.build(user);
   }

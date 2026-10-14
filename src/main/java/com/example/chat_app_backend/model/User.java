@@ -1,5 +1,6 @@
 package com.example.chat_app_backend.model;
 
+import com.example.chat_app_backend.common.enums.UserStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -36,7 +37,7 @@ public class User {
   private String displayName;
 
   @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'ACTIVE'")
-  private String status = "ACTIVE"; // ACTIVE, DISABLED, BANNED, DELETED
+  private String status = UserStatus.ACTIVE.name();
 
   @Column(nullable = false, columnDefinition = "boolean default false")
   private boolean mustChangePassword = false;

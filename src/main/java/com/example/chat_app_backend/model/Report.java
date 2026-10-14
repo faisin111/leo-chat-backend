@@ -1,5 +1,6 @@
 package com.example.chat_app_backend.model;
 
+import com.example.chat_app_backend.common.enums.ReportStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -32,7 +33,7 @@ public class Report {
   private String details;
 
   @Column(nullable = false, length = 12)
-  private String status = "OPEN"; // OPEN | RESOLVED | DISMISSED
+  private String status = ReportStatus.OPEN.name();
 
   private UUID resolvedBy;
 

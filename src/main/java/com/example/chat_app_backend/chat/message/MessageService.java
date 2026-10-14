@@ -9,6 +9,7 @@ import com.example.chat_app_backend.chat.message.dto.EditMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.ReadMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
+import com.example.chat_app_backend.common.enums.ConversationMemberRole;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
@@ -209,7 +210,7 @@ public class MessageService {
 
     if (!m.getSenderId().equals(userId)
         && !"OWNER".equals(mem.getRole())
-        && !"ADMIN".equals(mem.getRole())) {
+        && !ConversationMemberRole.ADMIN.name().equals(mem.getRole())) {
       throw new ForbiddenException("Not authorized");
     }
 

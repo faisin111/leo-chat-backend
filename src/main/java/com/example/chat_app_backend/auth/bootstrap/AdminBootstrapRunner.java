@@ -2,7 +2,7 @@ package com.example.chat_app_backend.auth.bootstrap;
 
 import com.example.chat_app_backend.model.User;
 import com.example.chat_app_backend.repository.UserRepository;
-import com.example.chat_app_backend.util.AppConstants;
+import com.example.chat_app_backend.common.constants.AppConstants;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

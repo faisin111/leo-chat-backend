@@ -1,5 +1,6 @@
 package com.example.chat_app_backend.chat.conversation;
 
+import com.example.chat_app_backend.common.enums.ConversationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -41,7 +42,7 @@ public class Conversation {
   private Instant createdAt;
 
   @Column(length = 10, nullable = false)
-  private String status = "ACTIVE"; // ACTIVE or LOCKED
+  private String status = ConversationStatus.ACTIVE.name();
 
   // Getters and Setters
   public UUID getId() {
