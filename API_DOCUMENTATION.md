@@ -95,7 +95,7 @@ Login/refresh set HttpOnly access and refresh JWT cookies. Browser resource requ
 
 ## 4. WebSocket Connection and Message Flow
 
-Connect to `/ws` (native WebSocket or SockJS). Send a STOMP `CONNECT` frame with `Authorization: Bearer <access-token>`. Missing, invalid and refresh tokens are rejected. HTTP and WebSocket origins use `app.cors.allowed-origins`, a comma-separated list defaulting to `http://localhost:3000`.
+Connect to `/ws` (native WebSocket or SockJS). Send a STOMP `CONNECT` frame with `Authorization: Bearer <access-token>`. Missing, invalid and refresh tokens are rejected. HTTP and WebSocket origins use `APP_CORS_ALLOWED_ORIGINS`, a comma-separated exact-origin allowlist.
 
 Subscribe to `/user/queue/acks` and `/user/queue/errors`. Conversation members can subscribe to `/topic/conversations.{conversationId}` and `/topic/conversations.{conversationId}.typing`. Arbitrary broker destinations and another user's queues are rejected.
 
