@@ -92,6 +92,16 @@ class AuthApiTest {
         .andExpect(status().isOk());
     mvc.perform(
             get("/api/v1/users/me")
+                .cookie(new Cookie("leo_chat_jwt", access))
+                .header("Authorization", "Bearer "))
+        .andExpect(status().isOk());
+    mvc.perform(
+            get("/api/v1/users/me")
+                .cookie(new Cookie("leo_chat_jwt", access))
+                .header("Authorization", "Bearer stale-token"))
+        .andExpect(status().isOk());
+    mvc.perform(
+            get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + tokens.get("refreshToken").asText()))
         .andExpect(status().isUnauthorized());
   }

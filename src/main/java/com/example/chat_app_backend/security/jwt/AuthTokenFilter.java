@@ -32,12 +32,11 @@ public class AuthTokenFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
     String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-    String token =
-        header == null
-            ? cookies.accessToken(request)
-            : header.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())
-                ? header.substring(BEARER_PREFIX.length()).trim()
-                : null;
+    String cookieToken = cookies.accessToken(request);
+    String bearerToken = extractBearerToken(header);
+    // Browser clients can send a stale/empty Authorization header while the fresh login cookie is
+    // already available. Prefer the valid cookie in that case so the first request is reliable.
+    String token = bearerToken == null || bearerToken.isBlank() ? cookieToken : bearerToken;
     if (token != null) {
       if (jwtUtils.validateJwtToken(token)) {
         try {
@@ -50,8 +49,29 @@ public class AuthTokenFilter extends OncePerRequestFilter {
           // Reject invalid credentials without logging bearer tokens or user details.
           SecurityContextHolder.clearContext();
         }
+      } else if (cookieToken != null && !cookieToken.equals(token) && jwtUtils.validateJwtToken(cookieToken)) {
+        authenticateCookie(request, cookieToken);
       }
     }
     chain.doFilter(request, response);
+  }
+
+  private String extractBearerToken(String header) {
+    if (header == null || !header.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+      return null;
+    }
+    return header.substring(BEARER_PREFIX.length()).trim();
+  }
+
+  private void authenticateCookie(HttpServletRequest request, String token) {
+    try {
+      UserDetails user = users.loadUserByUsername(jwtUtils.getUserNameFromJwtToken(token));
+      UsernamePasswordAuthenticationToken authentication =
+          new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+      authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+      SecurityContextHolder.getContext().setAuthentication(authentication);
+    } catch (AuthenticationException | JwtException | IllegalArgumentException exception) {
+      SecurityContextHolder.clearContext();
+    }
   }
 }

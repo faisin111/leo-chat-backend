@@ -11,6 +11,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.csrf.InvalidCsrfTokenException;
+import org.springframework.security.web.csrf.MissingCsrfTokenException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
@@ -27,12 +29,17 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 
     String traceId = UUID.randomUUID().toString();
+    boolean csrfFailure =
+        accessDeniedException instanceof InvalidCsrfTokenException
+            || accessDeniedException instanceof MissingCsrfTokenException;
     ApiError apiError =
         new ApiError(
             Instant.now(),
             HttpServletResponse.SC_FORBIDDEN,
-            "FORBIDDEN",
-            "Access is denied",
+            csrfFailure ? "CSRF_INVALID" : "FORBIDDEN",
+            csrfFailure
+                ? "CSRF token is missing or invalid; refresh /api/v1/auth/csrf and retry"
+                : "Access is denied",
             request.getRequestURI(),
             traceId,
             List.of());

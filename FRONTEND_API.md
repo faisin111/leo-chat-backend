@@ -10,9 +10,9 @@ All JSON requests use `Content-Type: application/json`. IDs are UUID strings. Ti
 
 1. `GET /auth/csrf` before the first browser write. Store the returned `token` in memory.
 2. Send that token as `X-XSRF-TOKEN` on browser `POST`, `PATCH`, `PUT`, and `DELETE` requests.
-3. `POST /auth/login` sets HttpOnly `ACCESS_TOKEN` and `REFRESH_TOKEN` cookies. The JSON token pair is also returned for non-browser clients.
+3. `POST /auth/login` sets HttpOnly `ACCESS_TOKEN` and `REFRESH_TOKEN` cookies. The JSON token pair is also returned for non-browser clients. Registration creates the account but does not log the browser in; call login after register.
 4. On a `401`, call `POST /auth/refresh` with cookies, then retry once. Do not put the refresh token in an Authorization header.
-5. `POST /auth/logout` clears this browser's cookies. Fully stateless JWTs copied elsewhere remain valid until expiry.
+5. `POST /auth/logout` clears this browser's cookies. Fully stateless JWTs copied elsewhere remain valid until expiry. A `403` with code `CSRF_INVALID` means refresh `/auth/csrf`, update the `X-XSRF-TOKEN` header, and retry.
 
 Cookie requests:
 
