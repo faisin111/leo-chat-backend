@@ -8,7 +8,7 @@ Earlier completion marks were unsupported by the current source and have been re
 
 - Auth, profile/search, direct/group conversations, messaging, read pointers and admin APIs have implementation code.
 - Stateless auth supersedes revocation requirements; admin transfer and remaining real-time features need repairs.
-- Reactions persist; media remains a scaffold. Device sessions are intentionally unsupported under stateless auth.
+- Reactions persist; image media now uses private Supabase Storage presigned S3 upload/download URLs. Device sessions are intentionally unsupported under stateless auth.
 - PostgreSQL fresh-install migrations and full-project OpenAPI contracts still need tests; messaging concurrency and reconnect sync now have H2 coverage.
 - Actuator is present; dashboards, tracing and full Prometheus integration are not verified.
 - Current structure: `PROJECT_DOCUMENTATION.md` section 3. Prioritized repair plan: section 15.2.

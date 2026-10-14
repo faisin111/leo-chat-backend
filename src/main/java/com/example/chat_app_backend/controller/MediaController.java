@@ -14,13 +14,11 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/v1/media")
 @Tag(name = "Media", description = "Endpoints for managing media uploads")
@@ -37,7 +35,7 @@ public class MediaController {
   public ResponseEntity<Map<String, Object>> presign(
       @AuthenticationPrincipal UserDetailsImpl userDetails,
       @Valid @RequestBody MediaPresignRequest request) {
-    return mediaService.presign(userDetails.getId(), request);
+    return ResponseEntity.ok(mediaService.presign(userDetails.getId(), request));
   }
 
   @Operation(summary = "Confirm upload")
@@ -46,6 +44,6 @@ public class MediaController {
   public ResponseEntity<Map<String, Object>> confirm(
       @AuthenticationPrincipal UserDetailsImpl userDetails,
       @Valid @RequestBody MediaConfirmRequest request) {
-    return mediaService.confirm(userDetails.getId(), request);
+    return ResponseEntity.ok(mediaService.confirm(userDetails.getId(), request));
   }
 }

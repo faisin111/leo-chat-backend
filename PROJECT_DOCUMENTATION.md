@@ -718,7 +718,7 @@ URL versioning (`/api/v1`). Additive changes stay in v1. Breaking changes go in 
 | M5 | Edit and delete message (soft delete, "edited" flag) |
 | M6 | Reply to message |
 | M7 | Reactions |
-| M8 | Media messages (image/file via pre-signed upload) |
+| M8 | Media messages (image via private Supabase S3 pre-signed upload) |
 | M9 | Email verification, forgot/reset password |
 | M10 | Block user; muted conversations |
 | M11 | Rate limiting (Redis token bucket) on auth and message send |
@@ -834,14 +834,14 @@ The baseline audit was a source inspection. The subsequent messaging repair adde
 
 | Area | Current implementation | Gap against target |
 |---|---|---|
-| Runtime/infrastructure | Java 17 in Maven, Docker and CI; Boot 3.3.4; Compose PostgreSQL 15, Redis 7, MinIO | Java 21/PostgreSQL 16 are planned upgrades; Redis and object storage are not integrated into application services |
+| Runtime/infrastructure | Java 17 in Maven, Docker and CI; Boot 3.3.4; Compose PostgreSQL 15, Redis 7, MinIO; optional Supabase S3 media | Java 21/PostgreSQL 16 are planned upgrades; Redis is not integrated into application services |
 | Structure | Mixed feature and layer packages; manual DTO mapping; some services return `ResponseEntity` | Target feature boundaries, constructor injection and DTO-only service contracts are not consistently enforced |
 | Auth | Stateless JWT cookies/CSRF plus Bearer API compatibility; strict purpose/issuer/audience checks; cookie-clearing logout; generic emailed recovery | Server revocation/device sessions intentionally unsupported; rate limiting and live socket closure remain incomplete |
-| Admin | Registration creates ROLE_USER; explicit optional AdminBootstrapRunner creates ROLE_ADMIN from configured credentials | Ownership transfer still needs atomic demotion/promotion, password check and audit; stateless tokens use live role checks rather than revocation |
+| Admin | Registration creates ROLE_USER; explicit optional AdminBootstrapRunner creates ROLE_ADMIN from configured credentials; ownership transfer verifies current password and swaps roles atomically | Audit event persistence and stateless remote revocation remain incomplete; stateless tokens use live role checks |
 | Messages | Active membership checks; conversation lock serializes retries and sequence allocation; ACK then broadcast after commit; atomic forward-only reads; edit/delete authorization; persisted reactions | PostgreSQL-specific locking and migrations still need integration validation; read-receipt/reaction broadcasts remain incomplete |
 | Pagination | Message history uses bounded `beforeSeq`/`afterSeq` queries; conversation cursor is a page number | Conversation pagination still uses offsets |
 | WebSocket | Simple broker; required access-token CONNECT; authorized subscriptions; restricted SEND paths; typing/read membership checks; shared configured origins; real STOMP regression tests | Live account-status/session revocation and multi-node delivery remain incomplete |
-| Product features | DM/group APIs, profile/search, presence endpoint, admin/report APIs | Presence returns account status/last-seen rather than connection tracking; reactions persist; media returns mock URLs; blocking, mentions and rate limiting need implementation evidence |
+| Product features | DM/group APIs, profile/search, presence endpoint, admin/report APIs | Presence returns account status/last-seen rather than connection tracking; reactions persist; media uses private Supabase presigned URLs; blocking, mentions and rate limiting need implementation evidence |
 | Database | V0 through V5 migration files; single-admin partial index uses `ROLE_ADMIN` | V0 is a placeholder without table creation; later files require existing tables; V5 drops refresh_tokens; section 6 SQL is a target example, not the deployed schema |
 | Admin responses | Some list/detail methods return User, Conversation, Report or AuditLog entities | Replace with explicit response DTOs and verify privacy and authorization |
 | Tests/CI | Auth/context tests plus message service, REST, STOMP, concurrency and message OpenAPI checks; Flyway disabled in test; Maven verify in CI | No PostgreSQL/Testcontainers or full endpoint contract suite; CI swallows formatter and dependency-scan failures |
@@ -857,7 +857,7 @@ Do not edit applied migrations. Reconcile existing database history before desig
 3. **B6/B9: secure real-time access.** Token enforcement, subscription/typing authorization, explicit origins and REST/STOMP tests are implemented. Complete live account-status/session checks and PostgreSQL validation.
 4. **B5/B6/B7/B8: prove messaging correctness.** Authorization before retries, serialized deduplication, after-commit delivery and bounded before/after message history are implemented and regression-tested on H2. Complete stable conversation cursors, DM uniqueness tests and PostgreSQL sequence/retry checks.
 5. **B9/B13: enforce contracts.** Replace entity responses and raw service HTTP responses with DTOs, standardize errors/validation, and add OpenAPI contract coverage.
-6. **Medium phase:** complete presence, typing, read receipts, reactions, mentions, real media, blocking, rate limiting and reconnect sync. Treat existing scaffolds as incomplete until behavior and tests satisfy exit criteria.
+6. **Medium phase:** complete presence, typing, read receipts, reactions, mentions, media attachment persistence, blocking, rate limiting and reconnect sync. Treat existing scaffolds as incomplete until behavior and tests satisfy exit criteria.
 7. **Structure cleanup:** move user, admin, media and common infrastructure into feature packages incrementally. Consolidate duplicate DTO/error types with compatibility checks. Avoid a global package rename or simultaneous behavior refactor.
 8. **Advanced phase:** implement multi-instance delivery, push, search and operations only after Basic and Medium exit criteria pass. Actuator or an exposed endpoint alone does not complete observability.
 
@@ -872,7 +872,7 @@ The Java 21 and PostgreSQL 16 upgrades remain planned. This documentation update
 | M0 | Section 15 audit and refactor | Clean base, tests, CI |
 | M1 | Basic B1-B11 | Working 1-to-1 real-time chat (MVP) |
 | M2 | Medium M1-M7 | Groups, presence, typing, receipts, edit/delete, reactions |
-| M3 | Medium M8-M14 | Media, email flows, blocking, rate limiting, robust sync |
+| M3 | Medium M8-M14 | File media, email flows, blocking, rate limiting, robust sync |
 | M4 | Advanced A1-A4 | Multi-node, push, search, delivery status |
 | M5 | Advanced A5-A10 | Async pipeline, moderation, observability, retention |
 | M6 | Advanced A11-A13 | Hardening, Kubernetes, optional extras |

@@ -7,6 +7,7 @@ import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
 import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
+import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
 import com.example.chat_app_backend.payload.response.CursorPageResponse;
@@ -47,6 +48,9 @@ public class ConversationService {
 
   @Transactional
   public ConversationResponse getOrCreateDirectChat(UUID userId1, UUID userId2) {
+    if (userId1.equals(userId2)) {
+      throw new BusinessRuleException("Cannot create a conversation with yourself");
+    }
     if (!userRepository.existsById(userId2)) {
       throw new NotFoundException("Target user not found");
     }
@@ -82,6 +86,12 @@ public class ConversationService {
   @Transactional(readOnly = true)
   public CursorPageResponse<ConversationResponse> getUserConversations(
       UUID userId, Long cursor, int limit) {
+    if (cursor != null && cursor < 0) {
+      throw new BusinessRuleException("Cursor must be zero or greater");
+    }
+    if (limit < 1 || limit > 100) {
+      throw new BusinessRuleException("Limit must be between 1 and 100");
+    }
     int page = (cursor == null) ? 0 : cursor.intValue();
     Pageable pageable = PageRequest.of(page, limit);
     Page<Conversation> pageResult =
@@ -142,10 +152,7 @@ public class ConversationService {
         conversationRepository
             .findById(conversationId)
             .orElseThrow(() -> new NotFoundException("Conversation not found"));
-    // check membership
-    memberRepository
-        .findById(new ConversationMemberId(conversationId, userId))
-        .orElseThrow(() -> new RuntimeException("Not a member"));
+    requireActiveMember(conversationId, userId);
     return mapToResponse(conv, userId);
   }
 
@@ -185,12 +192,9 @@ public class ConversationService {
       UUID userId, UUID id, UpdateGroupChatRequest request) {
     Conversation c =
         conversationRepository.findById(id).orElseThrow(() -> new NotFoundException("Not found"));
-    ConversationMember mem =
-        memberRepository
-            .findById(new ConversationMemberId(id, userId))
-            .orElseThrow(() -> new RuntimeException("Not member"));
+    ConversationMember mem = requireActiveMember(id, userId);
     if (!"OWNER".equals(mem.getRole()) && !"ADMIN".equals(mem.getRole()))
-      throw new RuntimeException("Forbidden");
+      throw new ForbiddenException("Only owners and admins can update a group");
 
     if (request.title() != null) c.setTitle(request.title());
     if (request.avatarUrl() != null) c.setAvatarUrl(request.avatarUrl());
@@ -199,9 +203,7 @@ public class ConversationService {
 
   @Transactional(readOnly = true)
   public List<ConversationMemberResponse> getMembers(UUID userId, UUID id) {
-    memberRepository
-        .findById(new ConversationMemberId(id, userId))
-        .orElseThrow(() -> new RuntimeException("Not member"));
+    requireActiveMember(id, userId);
     return memberRepository.findByIdConversationId(id).stream()
         .map(
             m ->
@@ -220,17 +222,21 @@ public class ConversationService {
 
   @Transactional
   public void addMembers(UUID userId, UUID id, AddMembersRequest request) {
-    ConversationMember mem =
-        memberRepository
-            .findById(new ConversationMemberId(id, userId))
-            .orElseThrow(() -> new RuntimeException("Not member"));
+    ConversationMember mem = requireActiveMember(id, userId);
     if (!"OWNER".equals(mem.getRole()) && !"ADMIN".equals(mem.getRole()))
-      throw new RuntimeException("Forbidden");
+      throw new ForbiddenException("Only owners and admins can add members");
     for (UUID mId : request.memberIds()) {
       if (userRepository.existsById(mId)) {
-        ConversationMember m = new ConversationMember();
-        m.setId(new ConversationMemberId(id, mId));
-        memberRepository.save(m);
+        ConversationMemberId memberId = new ConversationMemberId(id, mId);
+        ConversationMember existing = memberRepository.findById(memberId).orElse(null);
+        if (existing == null) {
+          ConversationMember m = new ConversationMember();
+          m.setId(memberId);
+          memberRepository.save(m);
+        } else if (existing.getLeftAt() != null) {
+          existing.setLeftAt(null);
+          memberRepository.save(existing);
+        }
       }
     }
   }
@@ -238,58 +244,50 @@ public class ConversationService {
   @Transactional
   public void removeMember(UUID userId, UUID id, UUID targetId) {
     if (!userId.equals(targetId)) {
-      ConversationMember mem =
-          memberRepository
-              .findById(new ConversationMemberId(id, userId))
-              .orElseThrow(() -> new RuntimeException("Not member"));
+      ConversationMember mem = requireActiveMember(id, userId);
       if (!"OWNER".equals(mem.getRole()) && !"ADMIN".equals(mem.getRole()))
-        throw new RuntimeException("Forbidden");
+        throw new ForbiddenException("Only owners and admins can remove members");
     }
-    memberRepository.deleteById(new ConversationMemberId(id, targetId));
+    ConversationMember target = requireActiveMember(id, targetId);
+    target.setLeftAt(Instant.now());
+    memberRepository.save(target);
   }
 
   @Transactional
   public void changeRole(UUID userId, UUID id, UUID targetId, ChangeRoleRequest request) {
-    ConversationMember mem =
-        memberRepository
-            .findById(new ConversationMemberId(id, userId))
-            .orElseThrow(() -> new RuntimeException("Not member"));
-    if (!"OWNER".equals(mem.getRole())) throw new RuntimeException("Forbidden");
-    ConversationMember target =
-        memberRepository
-            .findById(new ConversationMemberId(id, targetId))
-            .orElseThrow(() -> new RuntimeException("Not member"));
+    ConversationMember mem = requireActiveMember(id, userId);
+    if (!"OWNER".equals(mem.getRole()))
+      throw new ForbiddenException("Only the owner can change roles");
+    ConversationMember target = requireActiveMember(id, targetId);
     target.setRole(request.role());
     memberRepository.save(target);
   }
 
   @Transactional
   public void muteConversation(UUID userId, UUID id, Instant mutedUntil) {
-    ConversationMember mem =
-        memberRepository
-            .findById(new ConversationMemberId(id, userId))
-            .orElseThrow(() -> new RuntimeException("Not member"));
+    ConversationMember mem = requireActiveMember(id, userId);
     mem.setMutedUntil(mutedUntil);
     memberRepository.save(mem);
   }
 
   @Transactional
   public void pinConversation(UUID userId, UUID id, boolean pin) {
-    ConversationMember mem =
-        memberRepository
-            .findById(new ConversationMemberId(id, userId))
-            .orElseThrow(() -> new RuntimeException("Not member"));
+    ConversationMember mem = requireActiveMember(id, userId);
     mem.setPinnedAt(pin ? Instant.now() : null);
     memberRepository.save(mem);
   }
 
   @Transactional
   public void archiveConversation(UUID userId, UUID id, boolean archive) {
-    ConversationMember mem =
-        memberRepository
-            .findById(new ConversationMemberId(id, userId))
-            .orElseThrow(() -> new RuntimeException("Not member"));
+    ConversationMember mem = requireActiveMember(id, userId);
     mem.setArchivedAt(archive ? Instant.now() : null);
     memberRepository.save(mem);
+  }
+
+  private ConversationMember requireActiveMember(UUID conversationId, UUID userId) {
+    return memberRepository
+        .findById(new ConversationMemberId(conversationId, userId))
+        .filter(member -> member.getLeftAt() == null)
+        .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
   }
 }

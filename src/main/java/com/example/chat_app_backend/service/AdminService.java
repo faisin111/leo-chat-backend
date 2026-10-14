@@ -1,27 +1,29 @@
 package com.example.chat_app_backend.service;
 
-import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.model.Report;
-import com.example.chat_app_backend.model.AuditLog;
-import com.example.chat_app_backend.chat.conversation.Conversation;
-import com.example.chat_app_backend.chat.message.Message;
-import com.example.chat_app_backend.payload.response.MessageResponse;
-import com.example.chat_app_backend.repository.UserRepository;
-import com.example.chat_app_backend.repository.ReportRepository;
-import com.example.chat_app_backend.repository.AuditLogRepository;
-import com.example.chat_app_backend.chat.conversation.ConversationRepository;
-import com.example.chat_app_backend.chat.message.MessageRepository;
 import com.example.chat_app_backend.auth.AuthService;
+import com.example.chat_app_backend.chat.conversation.Conversation;
+import com.example.chat_app_backend.chat.conversation.ConversationRepository;
+import com.example.chat_app_backend.chat.message.Message;
+import com.example.chat_app_backend.chat.message.MessageRepository;
+import com.example.chat_app_backend.exception.BusinessRuleException;
+import com.example.chat_app_backend.exception.ForbiddenException;
+import com.example.chat_app_backend.model.AuditLog;
+import com.example.chat_app_backend.model.Report;
+import com.example.chat_app_backend.model.User;
+import com.example.chat_app_backend.payload.response.MessageResponse;
+import com.example.chat_app_backend.repository.AuditLogRepository;
+import com.example.chat_app_backend.repository.ReportRepository;
+import com.example.chat_app_backend.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 
 @Service
 public class AdminService {
@@ -39,25 +41,31 @@ public class AdminService {
     long totalConversations = conversationRepository.count();
     long totalReports = reportRepository.count();
 
-    return ResponseEntity.ok(java.util.Map.of(
-        "totalUsers", totalUsers,
-        "totalConversations", totalConversations,
-        "totalReports", totalReports
-    ));
+    return ResponseEntity.ok(
+        java.util.Map.of(
+            "totalUsers", totalUsers,
+            "totalConversations", totalConversations,
+            "totalReports", totalReports));
   }
 
-  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<com.example.chat_app_backend.model.User>> getUsers(String q, String status, int cursor, int limit) {
-    PageRequest pageRequest = PageRequest.of(cursor, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
-    Page<User> usersPage;
-    if (q != null && !q.isBlank()) {
-        usersPage = userRepository.findByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(q, q, pageRequest);
-    } else {
-        usersPage = userRepository.findAll(pageRequest);
-    }
-    
+  public ResponseEntity<
+          com.example.chat_app_backend.payload.response.CursorPageResponse<
+              com.example.chat_app_backend.model.User>>
+      getUsers(String q, String status, int cursor, int limit) {
+    validatePage(cursor, limit);
+    PageRequest pageRequest =
+        PageRequest.of(cursor, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<User> usersPage =
+        userRepository.searchAdminUsers(
+            status == null || status.isBlank() ? null : status.trim(),
+            q == null || q.isBlank() ? null : q.trim(),
+            pageRequest);
+
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
-            usersPage.getContent(), usersPage.hasNext(), usersPage.hasNext() ? String.valueOf(cursor + 1) : null));
+            usersPage.getContent(),
+            usersPage.hasNext(),
+            usersPage.hasNext() ? String.valueOf(cursor + 1) : null));
   }
 
   public ResponseEntity<java.util.Map<String, Object>> getUserById(UUID id) {
@@ -129,9 +137,16 @@ public class AdminService {
         new MessageResponse("User anonymized and softly deleted successfully."));
   }
 
-  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<Conversation>> getConversations(String q, String status, int cursor) {
+  public ResponseEntity<
+          com.example.chat_app_backend.payload.response.CursorPageResponse<Conversation>>
+      getConversations(String q, String status, int cursor) {
+    validatePage(cursor, 50);
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
-    Page<Conversation> page = conversationRepository.findAll(pageRequest);
+    Page<Conversation> page =
+        conversationRepository.searchAdminConversations(
+            status == null || status.isBlank() ? null : status.trim(),
+            q == null || q.isBlank() ? null : q.trim(),
+            pageRequest);
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
             page.getContent(), page.hasNext(), page.hasNext() ? String.valueOf(cursor + 1) : null));
@@ -141,20 +156,27 @@ public class AdminService {
   public ResponseEntity<MessageResponse> updateConversationStatus(
       UUID id,
       com.example.chat_app_backend.payload.request.UpdateConversationStatusRequest request) {
-    Conversation conv = conversationRepository.findById(id)
-        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Conversation not found"));
+    Conversation conv =
+        conversationRepository
+            .findById(id)
+            .orElseThrow(
+                () ->
+                    new com.example.chat_app_backend.exception.NotFoundException(
+                        "Conversation not found"));
     conv.setStatus(request.status());
     conversationRepository.save(conv);
     return ResponseEntity.ok(new MessageResponse("Conversation status updated successfully."));
   }
 
-  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<Report>> getReports(String status, int cursor) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<Report>>
+      getReports(String status, int cursor) {
+    validatePage(cursor, 50);
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<Report> page;
     if (status != null && !status.isBlank()) {
-        page = reportRepository.findByStatus(status, pageRequest);
+      page = reportRepository.findByStatus(status, pageRequest);
     } else {
-        page = reportRepository.findAll(pageRequest);
+      page = reportRepository.findAll(pageRequest);
     }
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
@@ -162,54 +184,73 @@ public class AdminService {
   }
 
   public ResponseEntity<Report> getReportDetail(UUID id) {
-    Report report = reportRepository.findById(id)
-        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Report not found"));
+    Report report =
+        reportRepository
+            .findById(id)
+            .orElseThrow(
+                () ->
+                    new com.example.chat_app_backend.exception.NotFoundException(
+                        "Report not found"));
     return ResponseEntity.ok(report);
   }
 
   @Transactional
   public ResponseEntity<MessageResponse> resolveReport(
       UUID id, com.example.chat_app_backend.payload.request.ResolveReportRequest request) {
-    Report report = reportRepository.findById(id)
-        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Report not found"));
-    
+    Report report =
+        reportRepository
+            .findById(id)
+            .orElseThrow(
+                () ->
+                    new com.example.chat_app_backend.exception.NotFoundException(
+                        "Report not found"));
+
     report.setStatus("RESOLVED");
     report.setResolution(request.resolution());
     report.setResolvedAt(java.time.Instant.now());
     reportRepository.save(report);
-    
+
     return ResponseEntity.ok(new MessageResponse("Report resolved successfully."));
   }
 
   @Transactional
   public ResponseEntity<MessageResponse> deleteMessage(UUID id, String reason) {
-    Message message = messageRepository.findById(id)
-        .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Message not found"));
-    
+    if (reason == null || reason.isBlank() || reason.length() > 500) {
+      throw new BusinessRuleException("A removal reason of 1 to 500 characters is required");
+    }
+    Message message =
+        messageRepository
+            .findById(id)
+            .orElseThrow(
+                () ->
+                    new com.example.chat_app_backend.exception.NotFoundException(
+                        "Message not found"));
+
     message.setRemovedByAdmin(true);
     message.setRemovalReason(reason);
     message.setDeletedAt(java.time.Instant.now());
     message.setContent("This message was removed by an admin.");
     messageRepository.save(message);
-    
+
     return ResponseEntity.ok(new MessageResponse("Message deleted successfully."));
   }
 
-  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<AuditLog>> getAuditLogs(
-      UUID actor, String action, String from, String to, int cursor) {
+  public ResponseEntity<com.example.chat_app_backend.payload.response.CursorPageResponse<AuditLog>>
+      getAuditLogs(UUID actor, String action, String from, String to, int cursor) {
+    validatePage(cursor, 50);
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<AuditLog> page;
-    
+
     if (actor != null && action != null && !action.isBlank()) {
-        page = auditLogRepository.findByActorIdAndAction(actor, action, pageRequest);
+      page = auditLogRepository.findByActorIdAndAction(actor, action, pageRequest);
     } else if (actor != null) {
-        page = auditLogRepository.findByActorId(actor, pageRequest);
+      page = auditLogRepository.findByActorId(actor, pageRequest);
     } else if (action != null && !action.isBlank()) {
-        page = auditLogRepository.findByAction(action, pageRequest);
+      page = auditLogRepository.findByAction(action, pageRequest);
     } else {
-        page = auditLogRepository.findAll(pageRequest);
+      page = auditLogRepository.findAll(pageRequest);
     }
-    
+
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
             page.getContent(), page.hasNext(), page.hasNext() ? String.valueOf(cursor + 1) : null));
@@ -217,14 +258,42 @@ public class AdminService {
 
   @Transactional
   public ResponseEntity<MessageResponse> transferOwnership(
-      com.example.chat_app_backend.payload.request.TransferOwnershipRequest request) {
-      
-      User targetUser = userRepository.findById(request.targetUserId())
-          .orElseThrow(() -> new com.example.chat_app_backend.exception.NotFoundException("Target user not found"));
-          
-      targetUser.setRole("ROLE_ADMIN");
-      userRepository.save(targetUser);
-      
-      return ResponseEntity.ok(new MessageResponse("Ownership transferred successfully."));
+      UUID actorId, com.example.chat_app_backend.payload.request.TransferOwnershipRequest request) {
+    User actor =
+        userRepository
+            .findById(actorId)
+            .orElseThrow(() -> new ForbiddenException("Active admin account required"));
+    if (!"ROLE_ADMIN".equals(actor.getRole())
+        || !passwordEncoder.matches(request.password(), actor.getPasswordHash())) {
+      throw new ForbiddenException("Current admin credentials are invalid");
+    }
+    User targetUser =
+        userRepository
+            .findById(request.targetUserId())
+            .orElseThrow(
+                () ->
+                    new com.example.chat_app_backend.exception.NotFoundException(
+                        "Target user not found"));
+    if (actorId.equals(targetUser.getId())) {
+      throw new BusinessRuleException("Target must be a different user");
+    }
+    if (!"ACTIVE".equals(targetUser.getStatus())) {
+      throw new BusinessRuleException("Target user must be active");
+    }
+    if ("ROLE_ADMIN".equals(targetUser.getRole())) {
+      throw new BusinessRuleException("Target user is already an admin");
+    }
+    actor.setRole("ROLE_USER");
+    userRepository.saveAndFlush(actor);
+    targetUser.setRole("ROLE_ADMIN");
+    userRepository.save(targetUser);
+
+    return ResponseEntity.ok(new MessageResponse("Ownership transferred successfully."));
+  }
+
+  private void validatePage(int cursor, int limit) {
+    if (cursor < 0) throw new BusinessRuleException("Cursor must be zero or greater");
+    if (limit < 1 || limit > 100)
+      throw new BusinessRuleException("Limit must be between 1 and 100");
   }
 }

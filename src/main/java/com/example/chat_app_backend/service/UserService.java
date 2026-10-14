@@ -109,6 +109,12 @@ public class UserService {
     if (query == null || query.trim().length() < 2) {
       throw new BusinessRuleException("Search query must be at least 2 characters");
     }
+    if (page < 0) {
+      throw new BusinessRuleException("Page must be zero or greater");
+    }
+    if (size < 1 || size > 100) {
+      throw new BusinessRuleException("Size must be between 1 and 100");
+    }
 
     Pageable pageable = PageRequest.of(page, size);
     Page<User> users =

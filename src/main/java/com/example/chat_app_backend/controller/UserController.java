@@ -11,13 +11,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "Users", description = "Endpoints for retrieving user profiles and directories")
@@ -61,7 +60,8 @@ public class UserController {
       description = "Allows the current user to update their phone number, bio, age, and region.")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PatchMapping("/me/profile")
-  public ResponseEntity<MessageResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
+  public ResponseEntity<MessageResponse> updateProfile(
+      @Valid @RequestBody UpdateProfileRequest request) {
     return userService.updateProfile(request);
   }
 

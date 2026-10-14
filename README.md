@@ -42,8 +42,9 @@ Once the server is running, explore the API endpoints using Swagger UI:
 - Stateless HttpOnly JWT cookies with browser CSRF protection, JSON token responses and Bearer API compatibility. See [authentication flow](docs/AUTHENTICATION.md).
 - REST and STOMP message sending with database persistence, ACK-before-broadcast after commit, retry deduplication and authorized conversation subscriptions.
 - Direct/group conversations, profile/search, message history, read pointers, edit/delete and admin endpoints exist.
+- Image uploads use private Supabase Storage through short-lived presigned S3 URLs.
 - Conversation pagination uses page offsets. Message history supports bounded `beforeSeq` and ascending `afterSeq` sync.
-- Reactions persist. Device sessions are intentionally unsupported; media storage remains a stub.
+- Reactions persist. Device sessions are intentionally unsupported; image media uses private Supabase Storage URLs.
 - Current package map and ordered repair plan live in `PROJECT_DOCUMENTATION.md`, sections 3 and 15.
 
 ## Testing
@@ -53,3 +54,18 @@ Tests cover auth behavior, message services, all eight message REST routes, STOM
 ```
 
 Admin provisioning is explicit: set `ADMIN_BOOTSTRAP_ENABLED=true` and `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`. Public registration always creates ROLE_USER.
+
+### Supabase image storage
+
+Create a private Storage bucket named `images`, then copy the S3 access key and secret from Supabase Storage settings into `.env`:
+
+```env
+SUPABASE_STORAGE_ENABLED=true
+SUPABASE_STORAGE_ENDPOINT=https://lzkeptvooqgodjbngsyh.storage.supabase.co/storage/v1/s3
+SUPABASE_STORAGE_REGION=ap-southeast-1
+SUPABASE_STORAGE_ACCESS_KEY=your-s3-access-key
+SUPABASE_STORAGE_SECRET_KEY=your-s3-secret-key
+SUPABASE_STORAGE_BUCKET=images
+```
+
+Authenticated clients call `POST /api/v1/media/presign` with `{ "mimeType": "image/png", "sizeInBytes": 12345 }`, upload the bytes with `PUT` to the returned `uploadUrl`, then call `POST /api/v1/media/confirm` with the returned `storageKey`. The API limits images to 10 MiB and scopes keys to the authenticated user. The confirm response contains a short-lived private download URL.

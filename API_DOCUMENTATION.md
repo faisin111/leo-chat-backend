@@ -1,6 +1,6 @@
 # Leo Chat Backend - API Documentation
 
-> **Implementation status (2026-10-13):** Authentication uses stateless JWT cookies for browsers, Bearer compatibility for API clients, fixed refresh deadlines and no server token storage. Server-wide/device revocation is unsupported and returns 422. See [authentication contract](docs/AUTHENTICATION.md). Reactions persist; media URLs are mock values, presence is stored status/last-seen, and conversation cursors remain page numbers. Message history and authorized STOMP messaging have regression tests.
+> **Implementation status (2026-10-14):** Authentication uses stateless JWT cookies for browsers, Bearer compatibility for API clients, fixed refresh deadlines and no server token storage. Server-wide/device revocation is unsupported and returns 422. See [authentication contract](docs/AUTHENTICATION.md). Reactions persist; image media uses private Supabase Storage presigned URLs, presence is stored status/last-seen, and conversation cursors remain page numbers. Message history and authorized STOMP messaging have regression tests.
 
 ## 1. Project Overview
 Leo Chat is a comprehensive real-time chat application backend built with Spring Boot. It provides a robust set of features suitable for building modern messaging clients (web, desktop, and mobile). 
@@ -71,8 +71,8 @@ Login/refresh set HttpOnly access and refresh JWT cookies. Browser resource requ
 *   `DELETE /api/v1/messages/{id}/reactions/{emoji}` - Remove an emoji reaction.
 
 ### Media & File Uploads (`/api/v1/media`)
-*   `POST /presign` - Request a secure upload URL from the server.
-*   `POST /confirm` - Confirm successful upload and attach media to the chat.
+*   `POST /presign` - Request a short-lived private Supabase S3 PUT URL for a JPEG, PNG, WebP, GIF, or AVIF image (maximum 10 MiB).
+*   `POST /confirm` - Verify the user-owned object exists and return a short-lived private GET URL.
 
 ### System Administration (`/api/v1/admin`)
 *(Requires `ROLE_ADMIN` authority)*

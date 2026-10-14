@@ -15,6 +15,7 @@ import com.example.chat_app_backend.payload.response.CursorPageResponse;
 import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.payload.response.ReportPageResponse;
 import com.example.chat_app_backend.payload.response.UserPageResponse;
+import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.service.AdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -22,12 +23,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -38,7 +40,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/v1/admin")
 @PreAuthorize("hasRole('ADMIN')")
@@ -84,7 +85,7 @@ public class AdminController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PatchMapping("/users/{id}/status")
   public ResponseEntity<MessageResponse> updateUserStatus(
-      @PathVariable UUID id, @RequestBody UpdateUserStatusRequest request) {
+      @PathVariable UUID id, @Valid @RequestBody UpdateUserStatusRequest request) {
     return adminService.updateUserStatus(id, request);
   }
 
@@ -119,7 +120,7 @@ public class AdminController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PatchMapping("/conversations/{id}/status")
   public ResponseEntity<MessageResponse> updateConversationStatus(
-      @PathVariable UUID id, @RequestBody UpdateConversationStatusRequest request) {
+      @PathVariable UUID id, @Valid @RequestBody UpdateConversationStatusRequest request) {
     return adminService.updateConversationStatus(id, request);
   }
 
@@ -145,7 +146,7 @@ public class AdminController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PatchMapping("/reports/{id}")
   public ResponseEntity<MessageResponse> resolveReport(
-      @PathVariable UUID id, @RequestBody ResolveReportRequest request) {
+      @PathVariable UUID id, @Valid @RequestBody ResolveReportRequest request) {
     return adminService.resolveReport(id, request);
   }
 
@@ -176,7 +177,8 @@ public class AdminController {
   @ApiResponse(responseCode = "200", description = "Successful response")
   @PostMapping("/transfer-ownership")
   public ResponseEntity<MessageResponse> transferOwnership(
-      @RequestBody TransferOwnershipRequest request) {
-    return adminService.transferOwnership(request);
+      @AuthenticationPrincipal UserDetailsImpl user,
+      @Valid @RequestBody TransferOwnershipRequest request) {
+    return adminService.transferOwnership(user.getId(), request);
   }
 }

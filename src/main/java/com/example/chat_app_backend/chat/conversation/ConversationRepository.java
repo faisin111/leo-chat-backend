@@ -33,6 +33,11 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
       @Param("userId") UUID userId, Pageable pageable);
 
   @Query(
+      "select c from Conversation c where (:status is null or c.status = :status) and (:query is null or lower(coalesce(c.title, '')) like lower(concat('%', :query, '%')) or lower(coalesce(c.directKey, '')) like lower(concat('%', :query, '%')))")
+  Page<Conversation> searchAdminConversations(
+      @Param("status") String status, @Param("query") String query, Pageable pageable);
+
+  @Query(
       "SELECT COALESCE(SUM(c.lastSeq - cm.lastReadSeq), 0) FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId AND c.lastSeq > cm.lastReadSeq")
   Long getUnreadCountByUserId(@Param("userId") UUID userId);
 }
