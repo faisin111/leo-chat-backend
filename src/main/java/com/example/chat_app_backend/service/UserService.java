@@ -62,6 +62,7 @@ public class UserService {
     return getUserById(userDetails.getId());
   }
 
+  @Transactional
   public ResponseEntity<MessageResponse> updateProfile(UpdateProfileRequest request) {
     UserDetailsImpl userDetails =
         (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
