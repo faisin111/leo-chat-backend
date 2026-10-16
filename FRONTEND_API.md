@@ -86,8 +86,8 @@ All user routes require authentication.
 
 | Method | Path | Success | Request/query |
 |---|---|---:|---|
-| GET | `/users/me` | 200 | none |
-| GET | `/users/{id}` | 200 | UUID path parameter |
+| GET | `/users/me` | 200 | returns `username` and `displayName` |
+| GET | `/users/{id}` | 200 | UUID path parameter; returns `username` and `displayName` |
 | PATCH | `/users/me/profile` | 200 | profile fields below |
 | DELETE | `/users/me` | 200 | Deactivates own account; admin cannot use this |
 | GET | `/users/search?q=alice&page=0&size=20` | 200 | `q` required; page ≥ 0; size 1–100 |

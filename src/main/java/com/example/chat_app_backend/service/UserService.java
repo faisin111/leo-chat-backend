@@ -43,6 +43,7 @@ public class UserService {
         new UserProfileResponse(
             user.getId(),
             user.getUsername(),
+            user.getDisplayName(),
             user.getEmail(),
             user.getRole(),
             user.getProfile() != null ? user.getProfile().getProfilePictureUrl() : null,
