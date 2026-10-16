@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -48,6 +49,7 @@ public class MessageService {
   private final MessageReactionRepository reactionRepository;
   private final UserRepository userRepository;
 
+  @Autowired
   public MessageService(
       MessageRepository messageRepository,
       ConversationRepository conversationRepository,
