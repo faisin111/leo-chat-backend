@@ -4,12 +4,12 @@ import com.example.chat_app_backend.chat.conversation.Conversation;
 import com.example.chat_app_backend.config.openapi.StandardErrors;
 import com.example.chat_app_backend.model.AuditLog;
 import com.example.chat_app_backend.model.Report;
-import com.example.chat_app_backend.model.User;
 import com.example.chat_app_backend.payload.request.ResolveReportRequest;
 import com.example.chat_app_backend.payload.request.TransferOwnershipRequest;
 import com.example.chat_app_backend.payload.request.UpdateConversationStatusRequest;
 import com.example.chat_app_backend.payload.request.UpdateUserStatusRequest;
 import com.example.chat_app_backend.payload.response.AuditLogPageResponse;
+import com.example.chat_app_backend.payload.response.AdminUserResponse;
 import com.example.chat_app_backend.payload.response.ConversationPageResponse;
 import com.example.chat_app_backend.payload.response.CursorPageResponse;
 import com.example.chat_app_backend.payload.response.MessageResponse;
@@ -66,7 +66,7 @@ public class AdminController {
       description = "Successful response",
       content = @Content(schema = @Schema(implementation = UserPageResponse.class)))
   @GetMapping("/users")
-  public ResponseEntity<CursorPageResponse<User>> getUsers(
+  public ResponseEntity<CursorPageResponse<AdminUserResponse>> getUsers(
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "0") int cursor,

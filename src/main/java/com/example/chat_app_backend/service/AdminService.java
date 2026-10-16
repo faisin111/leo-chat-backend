@@ -14,6 +14,7 @@ import com.example.chat_app_backend.model.AuditLog;
 import com.example.chat_app_backend.model.Report;
 import com.example.chat_app_backend.model.User;
 import com.example.chat_app_backend.payload.response.MessageResponse;
+import com.example.chat_app_backend.payload.response.AdminUserResponse;
 import com.example.chat_app_backend.repository.AuditLogRepository;
 import com.example.chat_app_backend.repository.ReportRepository;
 import com.example.chat_app_backend.repository.UserRepository;
@@ -53,8 +54,7 @@ public class AdminService {
   }
 
   public ResponseEntity<
-          com.example.chat_app_backend.payload.response.CursorPageResponse<
-              com.example.chat_app_backend.model.User>>
+          com.example.chat_app_backend.payload.response.CursorPageResponse<AdminUserResponse>>
       getUsers(String q, String status, int cursor, int limit) {
     validatePage(cursor, limit);
     PageRequest pageRequest =
@@ -67,7 +67,7 @@ public class AdminService {
 
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
-            usersPage.getContent(),
+            usersPage.getContent().stream().map(this::toAdminUser).toList(),
             usersPage.hasNext(),
             usersPage.hasNext() ? String.valueOf(cursor + 1) : null));
   }
@@ -294,6 +294,13 @@ public class AdminService {
     if (cursor < 0) throw new BusinessRuleException("Cursor must be zero or greater");
     if (limit < 1 || limit > 100)
       throw new BusinessRuleException("Limit must be between 1 and 100");
+  }
+
+  private AdminUserResponse toAdminUser(User user) {
+    return new AdminUserResponse(
+        user.getId(), user.getUsername(), user.getEmail(), user.getDisplayName(), user.getRole(),
+        user.getStatus(), user.isMustChangePassword(), user.isEmailVerified(), user.getLastSeenAt(),
+        user.getStatusReason(), user.getStatusChangedAt(), user.getCreatedAt(), user.getUpdatedAt());
   }
 
   private Instant parseInstant(String value, String name) {
