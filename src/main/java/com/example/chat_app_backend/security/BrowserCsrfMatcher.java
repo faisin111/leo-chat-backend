@@ -17,7 +17,7 @@ public class BrowserCsrfMatcher implements RequestMatcher {
   @Override
   public boolean matches(HttpServletRequest request) {
     if (SAFE_METHODS.contains(request.getMethod())) return false;
-    String path = request.getServletPath();
+    String path = request.getRequestURI();
     // SockJS transport is protected by the explicit origin allowlist and STOMP authentication.
     if (path.equals("/ws") || path.startsWith("/ws/")) return false;
     // Token API clients do not need a CSRF token. They authenticate each request with a bearer

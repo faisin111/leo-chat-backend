@@ -34,9 +34,10 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     String header = request.getHeader(HttpHeaders.AUTHORIZATION);
     String cookieToken = cookies.accessToken(request);
     String bearerToken = extractBearerToken(header);
-    // Browser clients can send a stale/empty Authorization header while the fresh login cookie is
-    // already available. Prefer the valid cookie in that case so the first request is reliable.
-    String token = bearerToken == null || bearerToken.isBlank() ? cookieToken : bearerToken;
+    // Empty or absent headers may fall back to the browser cookie. An explicit bearer credential
+    // must stay authoritative; never authenticate a different cookie identity behind it.
+    boolean explicitBearer = bearerToken != null && !bearerToken.isBlank();
+    String token = explicitBearer ? bearerToken : cookieToken;
     if (token != null) {
       if (jwtUtils.validateJwtToken(token)) {
         try {
@@ -49,8 +50,6 @@ public class AuthTokenFilter extends OncePerRequestFilter {
           // Reject invalid credentials without logging bearer tokens or user details.
           SecurityContextHolder.clearContext();
         }
-      } else if (cookieToken != null && !cookieToken.equals(token) && jwtUtils.validateJwtToken(cookieToken)) {
-        authenticateCookie(request, cookieToken);
       }
     }
     chain.doFilter(request, response);

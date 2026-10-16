@@ -77,7 +77,7 @@ class BrowserCookieAuthTest {
             post("/api/v1/auth/logout")
                 .cookie(access, xsrfCookie)
                 .header("Authorization", "Bearer invalid"))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isNoContent());
     mvc.perform(
             post("/api/v1/auth/refresh").cookie(refresh, xsrfCookie).header("X-XSRF-TOKEN", xsrf))
         .andExpect(status().isOk())

@@ -108,7 +108,7 @@ class AuthApiTest {
             get("/api/v1/users/me")
                 .cookie(new Cookie("leo_chat_jwt", access))
                 .header("Authorization", "Bearer stale-token"))
-        .andExpect(status().isOk());
+        .andExpect(status().isUnauthorized());
     mvc.perform(
             get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + tokens.get("refreshToken").asText()))
