@@ -7,16 +7,24 @@ import com.example.chat_app_backend.chat.conversation.ConversationService;
 import com.example.chat_app_backend.chat.message.dto.AddReactionRequest;
 import com.example.chat_app_backend.chat.message.dto.EditMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
+import com.example.chat_app_backend.chat.message.dto.MessageReactionResponse;
+import com.example.chat_app_backend.chat.message.dto.MessageReactionUserResponse;
+import com.example.chat_app_backend.chat.message.dto.MessageReplyResponse;
 import com.example.chat_app_backend.chat.message.dto.ReadMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
 import com.example.chat_app_backend.common.enums.ConversationMemberRole;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
+import com.example.chat_app_backend.model.User;
+import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.payload.response.CursorPageResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +46,7 @@ public class MessageService {
   private final SimpMessagingTemplate messagingTemplate;
   private final ConversationService conversationService;
   private final MessageReactionRepository reactionRepository;
+  private final UserRepository userRepository;
 
   public MessageService(
       MessageRepository messageRepository,
@@ -45,13 +54,15 @@ public class MessageService {
       ConversationMemberRepository memberRepository,
       SimpMessagingTemplate messagingTemplate,
       ConversationService conversationService,
-      MessageReactionRepository reactionRepository) {
+      MessageReactionRepository reactionRepository,
+      UserRepository userRepository) {
     this.messageRepository = messageRepository;
     this.conversationRepository = conversationRepository;
     this.memberRepository = memberRepository;
     this.messagingTemplate = messagingTemplate;
     this.conversationService = conversationService;
     this.reactionRepository = reactionRepository;
+    this.userRepository = userRepository;
   }
 
   @Transactional
@@ -240,6 +251,7 @@ public class MessageService {
     reaction.setUserId(userId);
     reaction.setEmoji(request.emoji());
     reactionRepository.save(reaction);
+    broadcastAfterCommit(message.getConversationId(), mapToResponse(message));
   }
 
   @Transactional
@@ -248,6 +260,7 @@ public class MessageService {
         messageRepository.lockById(id).orElseThrow(() -> new NotFoundException("Not found"));
     conversationService.assertActiveMember(userId, message.getConversationId());
     reactionRepository.deleteById(new MessageReaction.MessageReactionId(id, userId, emoji));
+    broadcastAfterCommit(message.getConversationId(), mapToResponse(message));
   }
 
   private void broadcastAfterCommit(UUID conversationId, MessageResponse response) {
@@ -266,17 +279,55 @@ public class MessageService {
   }
 
   private MessageResponse mapToResponse(Message m) {
+    User sender = userRepository.findById(m.getSenderId()).orElse(null);
+    MessageReplyResponse reply = null;
+    if (m.getReplyToId() != null) {
+      Message parent = messageRepository.findById(m.getReplyToId()).orElse(null);
+      if (parent != null) {
+        User parentSender = userRepository.findById(parent.getSenderId()).orElse(null);
+        reply =
+            new MessageReplyResponse(
+                parent.getId(),
+                parent.getSenderId(),
+                parentSender == null ? null : parentSender.getUsername(),
+                parentSender == null ? null : parentSender.getDisplayName(),
+                parent.getDeletedAt() == null ? parent.getContent() : null,
+                parent.getDeletedAt() != null);
+      }
+    }
     return new MessageResponse(
         m.getId(),
         m.getConversationId(),
         m.getSenderId(),
+        sender == null ? null : sender.getUsername(),
+        sender == null ? null : sender.getDisplayName(),
         m.getSeq(),
         m.getClientMessageId(),
         m.getType().name(),
         m.getDeletedAt() == null ? m.getContent() : null,
         m.getReplyToId(),
+        reply,
+        mapReactions(m.getId()),
         m.getCreatedAt(),
         m.getEditedAt(),
-        m.getDeletedAt());
+        m.getDeletedAt(),
+        m.getDeletedAt() != null);
+  }
+
+  private List<MessageReactionResponse> mapReactions(UUID messageId) {
+    Map<String, List<MessageReactionUserResponse>> grouped = new LinkedHashMap<>();
+    for (MessageReaction reaction : reactionRepository.findByMessageId(messageId)) {
+      User user = userRepository.findById(reaction.getUserId()).orElse(null);
+      grouped
+          .computeIfAbsent(reaction.getEmoji(), ignored -> new ArrayList<>())
+          .add(
+              new MessageReactionUserResponse(
+                  reaction.getUserId(),
+                  user == null ? null : user.getUsername(),
+                  user == null ? null : user.getDisplayName()));
+    }
+    return grouped.entrySet().stream()
+        .map(e -> new MessageReactionResponse(e.getKey(), e.getValue().size(), e.getValue()))
+        .collect(Collectors.toList());
   }
 }
