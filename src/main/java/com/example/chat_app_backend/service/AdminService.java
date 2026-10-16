@@ -59,11 +59,12 @@ public class AdminService {
     validatePage(cursor, limit);
     PageRequest pageRequest =
         PageRequest.of(cursor, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+    String normalizedStatus = status == null || status.isBlank() ? null : status.trim();
+    String normalizedQuery = q == null || q.isBlank() ? null : q.trim();
     Page<User> usersPage =
-        userRepository.searchAdminUsers(
-            status == null || status.isBlank() ? null : status.trim(),
-            q == null || q.isBlank() ? null : q.trim(),
-            pageRequest);
+        normalizedStatus == null && normalizedQuery == null
+            ? userRepository.findAll(pageRequest)
+            : userRepository.searchAdminUsers(normalizedStatus, normalizedQuery, pageRequest);
 
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
@@ -146,11 +147,13 @@ public class AdminService {
       getConversations(String q, String status, int cursor) {
     validatePage(cursor, 50);
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
+    String normalizedStatus = status == null || status.isBlank() ? null : status.trim();
+    String normalizedQuery = q == null || q.isBlank() ? null : q.trim();
     Page<Conversation> page =
-        conversationRepository.searchAdminConversations(
-            status == null || status.isBlank() ? null : status.trim(),
-            q == null || q.isBlank() ? null : q.trim(),
-            pageRequest);
+        normalizedStatus == null && normalizedQuery == null
+            ? conversationRepository.findAll(pageRequest)
+            : conversationRepository.searchAdminConversations(
+                normalizedStatus, normalizedQuery, pageRequest);
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
             page.getContent(), page.hasNext(), page.hasNext() ? String.valueOf(cursor + 1) : null));
