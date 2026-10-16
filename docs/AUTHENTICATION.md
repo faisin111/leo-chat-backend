@@ -38,8 +38,8 @@ All paths below start with `/api/v1/auth`. Bodies and responses are JSON except 
 | Method/path | Authentication | Input | Result |
 |---|---|---|---|
 | POST `/register` | Public | username, email, password, optional displayName | 201 regular user; verification email |
-| POST `/login` | Public + CSRF | username, password | 200 TokenResponse and HttpOnly cookies |
-| POST `/refresh` | Refresh cookie + CSRF | No body required; JSON refreshToken fallback | 200 TokenResponse and renewed cookies; unchanged refresh deadline |
+| POST `/login` | Public; no CSRF for token clients | username, password | 200 TokenResponse and HttpOnly cookies |
+| POST `/refresh` | Refresh cookie or JSON token | No body required; JSON refreshToken fallback | 200 TokenResponse and renewed cookies; unchanged refresh deadline |
 | POST `/logout` | Public; browser CSRF still required | No body | 204; clear matching-path authentication cookies |
 | POST `/logout-all` | Access Bearer | No body | 422 unsupported |
 | POST `/change-password` | Access Bearer | currentPassword, newPassword | 200; JWTs remain valid |
@@ -83,7 +83,7 @@ Only explicitly configured origins receive credentialed CORS access. Same-site l
 
 Swagger UI is configured to copy XSRF-TOKEN into X-XSRF-TOKEN; fetch /auth/csrf first before using mutating operations.
 
-Bearer-only clients without authentication cookies may skip CSRF. If an Authorization header is supplied, it takes precedence: an invalid Bearer token never falls back to a valid cookie. Requests carrying authentication cookies always require CSRF on writes, even if a Bearer header is also supplied.
+Bearer clients attach `Authorization: Bearer <access-token>` to every request and may skip CSRF. Cookie-only browser writes require CSRF. An explicit Bearer header takes precedence; invalid bearer credentials return `401`.
 
 Login/refresh retain TokenResponse with tokenType, expiresIn, refreshExpiresIn and user metadata, alongside accessToken/refreshToken for API compatibility. Responses include Cache-Control: no-store and Pragma: no-cache.
 
@@ -103,6 +103,6 @@ WebSocket is a separate real-time transport. Browser cookies authenticate the HT
 - `AUTH_COOKIE_SAME_SITE`: Lax by default; None requires Secure=true. Auth and CSRF cookies share these settings.
 - `ADMIN_BOOTSTRAP_ENABLED=true`, `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`: enable explicit admin bootstrap. Password length is 12–40 characters. Existing admins are preserved; existing public accounts are never promoted automatically. The database single-admin index remains required.
 
-Browser cookie transport is restored with CSRF protection. Existing Bearer API clients remain supported; browser clients should use credentials and obtain a CSRF token. Legacy JWTs without required issuer/audience/purpose/token-ID claims fail validation and require a fresh login. No database migration is needed for this auth change; existing V5 already removes refresh-token storage.
+Browser cookie transport remains available with CSRF protection. Bearer API clients can authenticate without a CSRF bootstrap request. Legacy JWTs without required issuer/audience/purpose/token-ID claims fail validation and require a fresh login. No database migration is needed for this auth change; existing V5 already removes refresh-token storage.
 
 Rate limiting, proactive socket closure and the existing ownership-transfer repair are still outstanding. PostgreSQL migration readiness is a separate known gap.

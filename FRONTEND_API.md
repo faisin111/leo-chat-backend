@@ -8,20 +8,28 @@ All JSON requests use `Content-Type: application/json`. IDs are UUID strings. Ti
 
 ### Browser setup
 
-1. `GET /auth/csrf` before the first browser write. Store the returned `token` in memory.
-2. Send that token as `X-XSRF-TOKEN` on browser `POST`, `PATCH`, `PUT`, and `DELETE` requests.
-3. `POST /auth/login` sets HttpOnly `ACCESS_TOKEN` and `REFRESH_TOKEN` cookies. The JSON token pair is also returned for non-browser clients. Registration creates the account but does not log the browser in; call login after register.
-4. On a `401`, call `POST /auth/refresh` with cookies, then retry once. Do not put the refresh token in an Authorization header.
-5. `POST /auth/logout` clears this browser's cookies. Fully stateless JWTs copied elsewhere remain valid until expiry. A `403` with code `CSRF_INVALID` means refresh `/auth/csrf`, update the `X-XSRF-TOKEN` header, and retry.
+1. `POST /auth/login` returns an access token and refresh token. Store the access token in memory and attach it as `Authorization: Bearer <accessToken>` on every API request.
+2. On a `401`, call `POST /auth/refresh` with `{ "refreshToken": "..." }`, replace the access token, then retry once.
+3. `POST /auth/logout` is client-side token deletion for Bearer clients. Fully stateless JWTs copied elsewhere remain valid until expiry.
+4. CSRF is only needed when using browser cookies without a Bearer header. Token clients do not call `/auth/csrf`.
 
-Cookie requests:
+Bearer API requests:
 
 ```js
-fetch(`${API}/auth/login`, {
+const response = await fetch(`${API}/auth/login`, {
   method: "POST",
-  credentials: "include",
-  headers: { "Content-Type": "application/json", "X-XSRF-TOKEN": csrfToken },
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ username, password })
+});
+
+const tokens = await response.json();
+const api = (path, options = {}) => fetch(`${API}${path}`, {
+  ...options,
+  headers: {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+    Authorization: `Bearer ${tokens.accessToken}`
+  }
 });
 ```
 

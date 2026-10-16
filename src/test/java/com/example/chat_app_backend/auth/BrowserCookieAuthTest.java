@@ -59,8 +59,6 @@ class BrowserCookieAuthTest {
     String body =
         mapper.writeValueAsString(
             Map.of("username", user.getUsername(), "password", "SecurePass123!"));
-    mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
-        .andExpect(status().isForbidden());
     MvcResult login =
         mvc.perform(
                 post("/api/v1/auth/login")

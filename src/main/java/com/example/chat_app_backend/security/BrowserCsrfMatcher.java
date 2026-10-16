@@ -20,12 +20,24 @@ public class BrowserCsrfMatcher implements RequestMatcher {
     String path = request.getServletPath();
     // SockJS transport is protected by the explicit origin allowlist and STOMP authentication.
     if (path.equals("/ws") || path.startsWith("/ws/")) return false;
+    // Token API clients do not need a CSRF token. They authenticate each request with a bearer
+    // access token instead of relying on ambient browser cookies.
     String header = request.getHeader("Authorization");
-    boolean bearerOnly =
-        header != null
-            && header.regionMatches(true, 0, "Bearer ", 0, 7)
-            && cookies.accessToken(request) == null
-            && cookies.refreshToken(request) == null;
-    return !bearerOnly;
+    if (header != null
+        && header.regionMatches(true, 0, "Bearer ", 0, 7)
+        && !header.substring(7).trim().isBlank()) return false;
+
+    // Login, registration, and token exchange are explicit API operations. They do not rely on
+    // an existing authenticated cookie, so requiring a CSRF bootstrap request would block token
+    // clients before they have a token. Cookie-authenticated protected writes remain protected.
+    return !Set.of(
+            "/api/v1/auth/login",
+            "/api/v1/auth/register",
+            "/api/v1/auth/refresh",
+            "/api/v1/auth/forgot-password",
+            "/api/v1/auth/reset-password",
+            "/api/v1/auth/verify-email",
+            "/api/v1/auth/resend-verification")
+        .contains(path);
   }
 }

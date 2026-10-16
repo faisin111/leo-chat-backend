@@ -81,6 +81,15 @@ class AuthApiTest {
   }
 
   @Test
+  void tokenLoginDoesNotNeedCsrfBootstrap() throws Exception {
+    mvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("username", user.getUsername(), "password", PASSWORD))))
+        .andExpect(status().isOk());
+  }
+
+  @Test
   void loginReturnsBearerTokensAndHeaderAuthenticationWorks() throws Exception {
     var tokens = login();
     String access = tokens.get("accessToken").asText();

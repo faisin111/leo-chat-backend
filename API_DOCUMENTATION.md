@@ -6,7 +6,7 @@
 Leo Chat is a comprehensive real-time chat application backend built with Spring Boot. It provides a robust set of features suitable for building modern messaging clients (web, desktop, and mobile). 
 
 ### Key Capabilities:
-*   **Authentication & Security:** Stateless HttpOnly JWT cookies with CSRF protection, Bearer compatibility, JSON token responses, email verification, and password recovery.
+*   **Authentication & Security:** Stateless HttpOnly JWT cookies for browser sessions, automatic Bearer-token API clients without CSRF bootstrap, JSON token responses, email verification, and password recovery.
 *   **User Management:** Profiles, online presence tracking, stateless account authentication, and user search directory.
 *   **Messaging System:** Support for both 1-on-1 Direct Messages (DMs) and Group Chats. Features include message history, pagination, persisted read positions, editing/deleting messages, and emoji reactions.
 *   **Media Handling:** Cloud-ready media upload flow using presigned URLs for sending images/files securely.
@@ -15,7 +15,7 @@ Leo Chat is a comprehensive real-time chat application backend built with Spring
 ---
 
 ## 2. Authentication Flow
-Login/refresh set HttpOnly access and refresh JWT cookies. Browser resource requests use `credentials: "include"`; no Authorization header is needed. Fetch `GET /api/v1/auth/csrf` first and send its token in `X-XSRF-TOKEN` for browser writes. Refresh reads its cookie without requiring a body. Logout clears both cookies; copied JWTs stay valid until expiry. Explicit Bearer API requests remain supported. See [complete browser flow](docs/AUTHENTICATION.md).
+Login/refresh return JSON tokens and set HttpOnly access and refresh JWT cookies. API clients should keep the access token in memory and attach `Authorization: Bearer <access-token>` automatically; these requests do not need CSRF. Cookie-only browser writes still use `GET /api/v1/auth/csrf` and `X-XSRF-TOKEN`. Logout clears cookies; copied JWTs stay valid until expiry. See [complete auth flow](docs/AUTHENTICATION.md).
 
 ## 3. API Endpoints
 
