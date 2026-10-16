@@ -175,7 +175,7 @@ All media routes require authentication. Storage must be enabled with a private 
 | POST | `/media/presign` | 200 | `{ "mimeType": "image/png", "sizeInBytes": 12345 }` |
 | POST | `/media/confirm` | 200 | `{ "storageKey": "users/{userId}/{id}.png" }` |
 
-Supported MIME types: `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/avif`. The configured server limit is 10 MiB. Presign returns `uploadUrl`, `method` (`PUT`), `contentType`, `sizeInBytes`, `bucket`, `storageKey`, and `expiresIn`. Upload bytes directly to `uploadUrl`, preserving the returned content type and size. Confirm returns a private short-lived download `url`.
+Supported MIME types: images (`image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/avif`) and documents/files (`application/pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `text/plain`, `text/csv`, `application/zip`, `application/json`, `audio/mpeg`, `video/mp4`, `application/octet-stream`). The configured server limit is 10 MiB. Presign returns `uploadUrl`, `method` (`PUT`), `contentType`, `sizeInBytes`, `bucket`, `storageKey`, and `expiresIn`. Upload bytes directly to `uploadUrl`, preserving the returned content type and size. Confirm returns a private short-lived download `url`.
 
 ## Administration
 

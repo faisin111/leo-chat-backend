@@ -26,13 +26,32 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 @Service
 public class MediaService {
 
-  private static final Map<String, String> IMAGE_EXTENSIONS =
-      Map.of(
-          "image/jpeg", ".jpg",
-          "image/png", ".png",
-          "image/webp", ".webp",
-          "image/gif", ".gif",
-          "image/avif", ".avif");
+  private static final Map<String, String> SUPPORTED_EXTENSIONS =
+      Map.ofEntries(
+          Map.entry("image/jpeg", ".jpg"),
+          Map.entry("image/png", ".png"),
+          Map.entry("image/webp", ".webp"),
+          Map.entry("image/gif", ".gif"),
+          Map.entry("image/avif", ".avif"),
+          Map.entry("application/pdf", ".pdf"),
+          Map.entry("application/msword", ".doc"),
+          Map.entry(
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"),
+          Map.entry("application/vnd.ms-excel", ".xls"),
+          Map.entry("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"),
+          Map.entry("application/vnd.ms-powerpoint", ".ppt"),
+          Map.entry(
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pptx"),
+          Map.entry("text/plain", ".txt"),
+          Map.entry("text/csv", ".csv"),
+          Map.entry("application/zip", ".zip"),
+          Map.entry("application/x-zip-compressed", ".zip"),
+          Map.entry("application/json", ".json"),
+          Map.entry("audio/mpeg", ".mp3"),
+          Map.entry("audio/wav", ".wav"),
+          Map.entry("video/mp4", ".mp4"),
+          Map.entry("video/webm", ".webm"),
+          Map.entry("application/octet-stream", ".bin"));
 
   private final ObjectProvider<S3Presigner> presigner;
   private final ObjectProvider<S3Client> client;
@@ -50,15 +69,15 @@ public class MediaService {
   public Map<String, Object> presign(UUID userId, MediaPresignRequest request) {
     ensureEnabled();
     String mimeType = normalizeMimeType(request.mimeType());
-    if (!IMAGE_EXTENSIONS.containsKey(mimeType)) {
-      throw new BusinessRuleException("Only JPEG, PNG, WebP, GIF, and AVIF images are supported");
+    if (!SUPPORTED_EXTENSIONS.containsKey(mimeType)) {
+      throw new BusinessRuleException("Unsupported file type");
     }
     if (request.sizeInBytes() < 1 || request.sizeInBytes() > properties.maxImageBytes()) {
-      throw new BusinessRuleException("Image exceeds the configured size limit");
+      throw new BusinessRuleException("File exceeds the configured size limit");
     }
 
     String storageKey =
-        "users/" + userId + "/" + UUID.randomUUID() + IMAGE_EXTENSIONS.get(mimeType);
+        "users/" + userId + "/" + UUID.randomUUID() + SUPPORTED_EXTENSIONS.get(mimeType);
     PutObjectRequest putRequest =
         PutObjectRequest.builder()
             .bucket(properties.bucket())
@@ -95,14 +114,14 @@ public class MediaService {
               .headObject(
                   HeadObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build());
       if (metadata.contentLength() == null || metadata.contentLength() < 1) {
-        throw new BusinessRuleException("Uploaded image is empty");
+        throw new BusinessRuleException("Uploaded file is empty");
       }
       if (metadata.contentLength() > properties.maxImageBytes()) {
-        throw new BusinessRuleException("Uploaded image exceeds the configured size limit");
+        throw new BusinessRuleException("Uploaded file exceeds the configured size limit");
       }
       String contentType = normalizeMimeType(metadata.contentType());
-      if (!IMAGE_EXTENSIONS.containsKey(contentType)) {
-        throw new BusinessRuleException("Uploaded object is not a supported image");
+      if (!SUPPORTED_EXTENSIONS.containsKey(contentType)) {
+        throw new BusinessRuleException("Uploaded object is not a supported file type");
       }
       GetObjectRequest getRequest =
           GetObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build();
@@ -135,7 +154,7 @@ public class MediaService {
     if (!properties.enabled()
         || presigner.getIfAvailable() == null
         || client.getIfAvailable() == null) {
-      throw new BusinessRuleException("Image storage is not configured");
+      throw new BusinessRuleException("Storage is not configured");
     }
   }
 
