@@ -247,8 +247,17 @@ public class AdminService {
     Instant toInstant = parseInstant(to, "to");
     if (fromInstant != null && toInstant != null && fromInstant.isAfter(toInstant))
       throw new BusinessRuleException("from must be before or equal to to");
-    Page<AuditLog> page = auditLogRepository.findFiltered(
-        actor, action == null || action.isBlank() ? null : action.trim(), fromInstant, toInstant, pageRequest);
+    String normalizedAction = action == null || action.isBlank() ? null : action.trim();
+    Page<AuditLog> page;
+    if (fromInstant == null && toInstant == null) {
+      if (actor != null && normalizedAction != null)
+        page = auditLogRepository.findByActorIdAndAction(actor, normalizedAction, pageRequest);
+      else if (actor != null) page = auditLogRepository.findByActorId(actor, pageRequest);
+      else if (normalizedAction != null) page = auditLogRepository.findByAction(normalizedAction, pageRequest);
+      else page = auditLogRepository.findAll(pageRequest);
+    } else {
+      page = auditLogRepository.findFiltered(actor, normalizedAction, fromInstant, toInstant, pageRequest);
+    }
 
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
