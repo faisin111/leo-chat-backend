@@ -65,6 +65,24 @@ public class MessageService {
     this.userRepository = userRepository;
   }
 
+  /** Backward-compatible constructor for unit tests and integrations not needing author metadata. */
+  public MessageService(
+      MessageRepository messageRepository,
+      ConversationRepository conversationRepository,
+      ConversationMemberRepository memberRepository,
+      SimpMessagingTemplate messagingTemplate,
+      ConversationService conversationService,
+      MessageReactionRepository reactionRepository) {
+    this(
+        messageRepository,
+        conversationRepository,
+        memberRepository,
+        messagingTemplate,
+        conversationService,
+        reactionRepository,
+        null);
+  }
+
   @Transactional
   public MessageResponse sendMessage(UUID senderId, UUID convId, SendMessageRequest request) {
     return sendMessage(senderId, convId, request, null);
@@ -279,12 +297,12 @@ public class MessageService {
   }
 
   private MessageResponse mapToResponse(Message m) {
-    User sender = userRepository.findById(m.getSenderId()).orElse(null);
+    User sender = findUser(m.getSenderId());
     MessageReplyResponse reply = null;
     if (m.getReplyToId() != null) {
       Message parent = messageRepository.findById(m.getReplyToId()).orElse(null);
       if (parent != null) {
-        User parentSender = userRepository.findById(parent.getSenderId()).orElse(null);
+        User parentSender = findUser(parent.getSenderId());
         reply =
             new MessageReplyResponse(
                 parent.getId(),
@@ -316,8 +334,10 @@ public class MessageService {
 
   private List<MessageReactionResponse> mapReactions(UUID messageId) {
     Map<String, List<MessageReactionUserResponse>> grouped = new LinkedHashMap<>();
-    for (MessageReaction reaction : reactionRepository.findByMessageId(messageId)) {
-      User user = userRepository.findById(reaction.getUserId()).orElse(null);
+    List<MessageReaction> storedReactions = reactionRepository.findByMessageId(messageId);
+    if (storedReactions == null) return List.of();
+    for (MessageReaction reaction : storedReactions) {
+      User user = findUser(reaction.getUserId());
       grouped
           .computeIfAbsent(reaction.getEmoji(), ignored -> new ArrayList<>())
           .add(
@@ -329,5 +349,9 @@ public class MessageService {
     return grouped.entrySet().stream()
         .map(e -> new MessageReactionResponse(e.getKey(), e.getValue().size(), e.getValue()))
         .collect(Collectors.toList());
+  }
+
+  private User findUser(UUID userId) {
+    return userRepository == null ? null : userRepository.findById(userId).orElse(null);
   }
 }
