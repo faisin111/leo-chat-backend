@@ -78,7 +78,8 @@ public class WebSecurityConfig {
   public CorsConfigurationSource corsConfigurationSource(
       @Value("${app.cors.allowed-origins:http://localhost:3000}") String[] allowedOrigins) {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(List.of(allowedOrigins)); // Lock to known origins
+    // Patterns allow Vercel preview deployments while credentials remain enabled.
+    configuration.setAllowedOriginPatterns(List.of(allowedOrigins));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(
         List.of("Authorization", "Cache-Control", "Content-Type", "X-XSRF-TOKEN"));
