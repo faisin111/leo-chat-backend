@@ -116,7 +116,7 @@ All conversation routes require authentication and active membership where an ID
 
 | Method | Path | Success | Request/query |
 |---|---|---:|---|
-| GET | `/conversations?cursor=0&limit=50` | 200 | cursor page; limit 1–100 |
+| GET | `/conversations?cursor=0&limit=50&q=alice` | 200 | cursor page; searches conversation title, participant username, or display name; limit 1–100 |
 | POST | `/conversations/direct` | 200 | `{ "targetUserId": "uuid" }` |
 | POST | `/conversations/group` | 201 | `{ "title": "Team", "memberIds": ["uuid"] }` |
 | GET | `/conversations/{id}` | 200 | none |
@@ -143,6 +143,7 @@ All message routes require active conversation membership.
 |---|---|---:|---|
 | GET | `/conversations/{id}/messages?beforeSeq=10&limit=50` | 200 | history; use `beforeSeq` for older messages |
 | GET | `/conversations/{id}/messages?afterSeq=10&limit=50` | 200 | history; use `afterSeq` for ascending sync |
+| GET | `/conversations/{id}/messages?q=invoice&limit=50` | 200 | searches message content for this conversation |
 | POST | `/conversations/{id}/messages` | 200 | message body below |
 | POST | `/conversations/{id}/read` | 200 | `{ "upToSeq": 10 }` |
 | GET | `/messages/{id}` | 200 | message UUID |

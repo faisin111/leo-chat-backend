@@ -62,8 +62,10 @@ public class ConversationController {
   public ResponseEntity<CursorPageResponse<ConversationResponse>> getConversations(
       @AuthenticationPrincipal UserDetailsImpl user,
       @RequestParam(required = false) Long cursor,
-      @RequestParam(defaultValue = "50") int limit) {
-    return ResponseEntity.ok(conversationService.getUserConversations(user.getId(), cursor, limit));
+      @RequestParam(defaultValue = "50") int limit,
+      @RequestParam(required = false) String q) {
+    return ResponseEntity.ok(
+        conversationService.getUserConversations(user.getId(), cursor, limit, q));
   }
 
   @Operation(

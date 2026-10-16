@@ -30,6 +30,13 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
       @Param("cursor") long cursor,
       Pageable pageable);
 
+  @Query(
+      "SELECT m FROM Message m WHERE m.conversationId = :conversationId AND lower(m.content) LIKE lower(concat('%', :query, '%')) ORDER BY m.seq DESC")
+  List<Message> searchContent(
+      @Param("conversationId") UUID conversationId,
+      @Param("query") String query,
+      Pageable pageable);
+
   Optional<Message> findByConversationIdAndSenderIdAndClientMessageId(
       UUID conversationId, UUID senderId, String clientMessageId);
 }

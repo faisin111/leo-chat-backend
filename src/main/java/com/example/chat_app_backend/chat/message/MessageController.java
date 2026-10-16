@@ -66,9 +66,11 @@ public class MessageController {
           @RequestParam(required = false)
           Long afterSeq,
       @Parameter(description = "Page size from 1 to 100") @RequestParam(defaultValue = "50")
-          int limit) {
+          int limit,
+      @Parameter(description = "Search message content") @RequestParam(required = false)
+          String q) {
     return ResponseEntity.ok(
-        messageService.getHistory(user.getId(), id, beforeSeq, afterSeq, limit));
+        messageService.getHistory(user.getId(), id, beforeSeq, afterSeq, limit, q));
   }
 
   @Operation(

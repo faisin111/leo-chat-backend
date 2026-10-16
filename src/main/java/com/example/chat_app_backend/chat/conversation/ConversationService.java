@@ -86,7 +86,7 @@ public class ConversationService {
 
   @Transactional(readOnly = true)
   public CursorPageResponse<ConversationResponse> getUserConversations(
-      UUID userId, Long cursor, int limit) {
+      UUID userId, Long cursor, int limit, String query) {
     if (cursor != null && cursor < 0) {
       throw new BusinessRuleException("Cursor must be zero or greater");
     }
@@ -96,7 +96,8 @@ public class ConversationService {
     int page = (cursor == null) ? 0 : cursor.intValue();
     Pageable pageable = PageRequest.of(page, limit);
     Page<Conversation> pageResult =
-        conversationRepository.findByUserIdOrderByLastMessageAtDesc(userId, pageable);
+        conversationRepository.searchUserConversations(
+            userId, query == null || query.isBlank() ? null : query.strip(), pageable);
 
     List<ConversationResponse> responses =
         pageResult.getContent().stream()

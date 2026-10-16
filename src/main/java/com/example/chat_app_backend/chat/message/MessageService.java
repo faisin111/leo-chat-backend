@@ -137,6 +137,12 @@ public class MessageService {
   @Transactional(readOnly = true)
   public CursorPageResponse<MessageResponse> getHistory(
       UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit) {
+    return getHistory(userId, convId, beforeSeq, afterSeq, limit, null);
+  }
+
+  @Transactional(readOnly = true)
+  public CursorPageResponse<MessageResponse> getHistory(
+      UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit, String query) {
     conversationService.assertActiveMember(userId, convId);
     if (limit < 1
         || limit > 100
@@ -148,9 +154,11 @@ public class MessageService {
     long safeCursor = (beforeSeq == null || beforeSeq <= 0) ? Long.MAX_VALUE : beforeSeq;
     Pageable page = PageRequest.of(0, limit + 1);
     List<Message> msgs =
-        afterSeq == null
-            ? messageRepository.findHistory(convId, safeCursor, page)
-            : messageRepository.findAfter(convId, afterSeq, page);
+        query != null && !query.isBlank()
+            ? messageRepository.searchContent(convId, query.strip(), page)
+            : afterSeq == null
+                ? messageRepository.findHistory(convId, safeCursor, page)
+                : messageRepository.findAfter(convId, afterSeq, page);
     List<MessageResponse> responses =
         msgs.stream().limit(limit).map(this::mapToResponse).collect(Collectors.toList());
     boolean hasMore = msgs.size() > limit;
