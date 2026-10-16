@@ -38,7 +38,24 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
       @Param("userId") UUID userId, @Param("query") String query, Pageable pageable);
 
   @Query(
-      "select c from Conversation c where (:status is null or c.status = :status) and (:query is null or lower(coalesce(c.title, '')) like lower(concat('%', :query, '%')) or lower(coalesce(c.directKey, '')) like lower(concat('%', :query, '%')))")
+      value =
+          "SELECT DISTINCT c FROM Conversation c "
+              + "LEFT JOIN ConversationMember cm ON c.id = cm.id.conversationId "
+              + "LEFT JOIN User u ON u.id = cm.id.userId "
+              + "WHERE (:status IS NULL OR c.status = :status) "
+              + "AND (:query IS NULL OR lower(coalesce(c.title, '')) LIKE lower(concat('%', :query, '%')) "
+              + "OR lower(coalesce(u.username, '')) LIKE lower(concat('%', :query, '%')) "
+              + "OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :query, '%')) "
+              + "OR lower(coalesce(c.directKey, '')) LIKE lower(concat('%', :query, '%')))",
+      countQuery =
+          "SELECT COUNT(DISTINCT c) FROM Conversation c "
+              + "LEFT JOIN ConversationMember cm ON c.id = cm.id.conversationId "
+              + "LEFT JOIN User u ON u.id = cm.id.userId "
+              + "WHERE (:status IS NULL OR c.status = :status) "
+              + "AND (:query IS NULL OR lower(coalesce(c.title, '')) LIKE lower(concat('%', :query, '%')) "
+              + "OR lower(coalesce(u.username, '')) LIKE lower(concat('%', :query, '%')) "
+              + "OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :query, '%')) "
+              + "OR lower(coalesce(c.directKey, '')) LIKE lower(concat('%', :query, '%')))")
   Page<Conversation> searchAdminConversations(
       @Param("status") String status, @Param("query") String query, Pageable pageable);
 
