@@ -19,6 +19,7 @@ import com.example.chat_app_backend.repository.ReportRepository;
 import com.example.chat_app_backend.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -242,17 +243,12 @@ public class AdminService {
       getAuditLogs(UUID actor, String action, String from, String to, int cursor) {
     validatePage(cursor, 50);
     PageRequest pageRequest = PageRequest.of(cursor, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
-    Page<AuditLog> page;
-
-    if (actor != null && action != null && !action.isBlank()) {
-      page = auditLogRepository.findByActorIdAndAction(actor, action, pageRequest);
-    } else if (actor != null) {
-      page = auditLogRepository.findByActorId(actor, pageRequest);
-    } else if (action != null && !action.isBlank()) {
-      page = auditLogRepository.findByAction(action, pageRequest);
-    } else {
-      page = auditLogRepository.findAll(pageRequest);
-    }
+    Instant fromInstant = parseInstant(from, "from");
+    Instant toInstant = parseInstant(to, "to");
+    if (fromInstant != null && toInstant != null && fromInstant.isAfter(toInstant))
+      throw new BusinessRuleException("from must be before or equal to to");
+    Page<AuditLog> page = auditLogRepository.findFiltered(
+        actor, action == null || action.isBlank() ? null : action.trim(), fromInstant, toInstant, pageRequest);
 
     return ResponseEntity.ok(
         new com.example.chat_app_backend.payload.response.CursorPageResponse<>(
@@ -298,5 +294,14 @@ public class AdminService {
     if (cursor < 0) throw new BusinessRuleException("Cursor must be zero or greater");
     if (limit < 1 || limit > 100)
       throw new BusinessRuleException("Limit must be between 1 and 100");
+  }
+
+  private Instant parseInstant(String value, String name) {
+    if (value == null || value.isBlank()) return null;
+    try {
+      return Instant.parse(value.trim());
+    } catch (java.time.format.DateTimeParseException ex) {
+      throw new BusinessRuleException(name + " must be an ISO-8601 timestamp");
+    }
   }
 }
