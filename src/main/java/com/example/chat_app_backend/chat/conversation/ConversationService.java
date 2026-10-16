@@ -95,9 +95,11 @@ public class ConversationService {
     }
     int page = (cursor == null) ? 0 : cursor.intValue();
     Pageable pageable = PageRequest.of(page, limit);
+    String normalizedQuery = query == null || query.isBlank() ? null : query.strip();
     Page<Conversation> pageResult =
-        conversationRepository.searchUserConversations(
-            userId, query == null || query.isBlank() ? null : query.strip(), pageable);
+        normalizedQuery == null
+            ? conversationRepository.findByUserIdOrderByLastMessageAtDesc(userId, pageable)
+            : conversationRepository.searchUserConversations(userId, normalizedQuery, pageable);
 
     List<ConversationResponse> responses =
         pageResult.getContent().stream()
