@@ -56,7 +56,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
   }
 
   private String extractBearerToken(String header) {
-    if (header == null || !header.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+    if (header == null
+        || !header.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
       return null;
     }
     return header.substring(BEARER_PREFIX.length()).trim();

@@ -77,7 +77,7 @@ public class UserProfileResponse {
     return age;
   }
 
-public String getRegion() {
+  public String getRegion() {
     return region;
   }
 

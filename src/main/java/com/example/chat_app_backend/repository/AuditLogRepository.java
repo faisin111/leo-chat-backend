@@ -12,10 +12,18 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
-    @Query("select a from AuditLog a where (:actor is null or a.actorId = :actor) and (:action is null or a.action = :action) and (:from is null or a.createdAt >= :from) and (:to is null or a.createdAt <= :to)")
-    Page<AuditLog> findFiltered(@Param("actor") UUID actor, @Param("action") String action,
-        @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
-    Page<AuditLog> findByActorId(UUID actorId, Pageable pageable);
-    Page<AuditLog> findByAction(String action, Pageable pageable);
-    Page<AuditLog> findByActorIdAndAction(UUID actorId, String action, Pageable pageable);
+  @Query(
+      "select a from AuditLog a where (:actor is null or a.actorId = :actor) and (:action is null or a.action = :action) and (:from is null or a.createdAt >= :from) and (:to is null or a.createdAt <= :to)")
+  Page<AuditLog> findFiltered(
+      @Param("actor") UUID actor,
+      @Param("action") String action,
+      @Param("from") Instant from,
+      @Param("to") Instant to,
+      Pageable pageable);
+
+  Page<AuditLog> findByActorId(UUID actorId, Pageable pageable);
+
+  Page<AuditLog> findByAction(String action, Pageable pageable);
+
+  Page<AuditLog> findByActorIdAndAction(UUID actorId, String action, Pageable pageable);
 }

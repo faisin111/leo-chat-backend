@@ -1,26 +1,26 @@
 package com.example.chat_app_backend.service;
 
 import com.example.chat_app_backend.auth.AuthService;
-import com.example.chat_app_backend.common.constants.AppConstants;
-import com.example.chat_app_backend.common.enums.ReportStatus;
-import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.chat.conversation.Conversation;
 import com.example.chat_app_backend.chat.conversation.ConversationRepository;
 import com.example.chat_app_backend.chat.message.Message;
 import com.example.chat_app_backend.chat.message.MessageRepository;
+import com.example.chat_app_backend.common.constants.AppConstants;
+import com.example.chat_app_backend.common.enums.ReportStatus;
+import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.model.AuditLog;
 import com.example.chat_app_backend.model.Report;
 import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.payload.response.AdminUserResponse;
+import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.repository.AuditLogRepository;
 import com.example.chat_app_backend.repository.ReportRepository;
 import com.example.chat_app_backend.repository.UserRepository;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -256,10 +256,13 @@ public class AdminService {
       if (actor != null && normalizedAction != null)
         page = auditLogRepository.findByActorIdAndAction(actor, normalizedAction, pageRequest);
       else if (actor != null) page = auditLogRepository.findByActorId(actor, pageRequest);
-      else if (normalizedAction != null) page = auditLogRepository.findByAction(normalizedAction, pageRequest);
+      else if (normalizedAction != null)
+        page = auditLogRepository.findByAction(normalizedAction, pageRequest);
       else page = auditLogRepository.findAll(pageRequest);
     } else {
-      page = auditLogRepository.findFiltered(actor, normalizedAction, fromInstant, toInstant, pageRequest);
+      page =
+          auditLogRepository.findFiltered(
+              actor, normalizedAction, fromInstant, toInstant, pageRequest);
     }
 
     return ResponseEntity.ok(
@@ -310,9 +313,19 @@ public class AdminService {
 
   private AdminUserResponse toAdminUser(User user) {
     return new AdminUserResponse(
-        user.getId(), user.getUsername(), user.getEmail(), user.getDisplayName(), user.getRole(),
-        user.getStatus(), user.isMustChangePassword(), user.isEmailVerified(), user.getLastSeenAt(),
-        user.getStatusReason(), user.getStatusChangedAt(), user.getCreatedAt(), user.getUpdatedAt());
+        user.getId(),
+        user.getUsername(),
+        user.getEmail(),
+        user.getDisplayName(),
+        user.getRole(),
+        user.getStatus(),
+        user.isMustChangePassword(),
+        user.isEmailVerified(),
+        user.getLastSeenAt(),
+        user.getStatusReason(),
+        user.getStatusChangedAt(),
+        user.getCreatedAt(),
+        user.getUpdatedAt());
   }
 
   private Instant parseInstant(String value, String name) {

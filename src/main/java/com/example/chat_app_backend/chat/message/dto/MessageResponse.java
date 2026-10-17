@@ -28,4 +28,5 @@ public record MessageResponse(
     @Schema(description = "Creation time in UTC") Instant createdAt,
     @Schema(description = "Edit time in UTC, if edited") Instant editedAt,
     @Schema(description = "Deletion time in UTC, if deleted") Instant deletedAt,
-    @Schema(description = "True when the message was deleted; content is then null") boolean deleted) {}
+    @Schema(description = "True when the message was deleted; content is then null")
+        boolean deleted) {}

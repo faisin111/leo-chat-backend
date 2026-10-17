@@ -1,5 +1,7 @@
 package com.example.chat_app_backend.service;
 
+import com.example.chat_app_backend.common.constants.AppConstants;
+import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.NotFoundException;
 import com.example.chat_app_backend.model.Profile;
@@ -10,8 +12,6 @@ import com.example.chat_app_backend.payload.response.UserProfileResponse;
 import com.example.chat_app_backend.payload.response.UserSearchResponse;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
-import com.example.chat_app_backend.common.constants.AppConstants;
-import com.example.chat_app_backend.common.enums.UserStatus;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

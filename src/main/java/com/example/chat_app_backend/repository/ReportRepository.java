@@ -9,5 +9,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ReportRepository extends JpaRepository<Report, UUID> {
-    Page<Report> findByStatus(String status, Pageable pageable);
+  Page<Report> findByStatus(String status, Pageable pageable);
 }

@@ -6,10 +6,10 @@ import com.example.chat_app_backend.chat.conversation.ConversationRepository;
 import com.example.chat_app_backend.chat.conversation.ConversationService;
 import com.example.chat_app_backend.chat.message.dto.AddReactionRequest;
 import com.example.chat_app_backend.chat.message.dto.EditMessageRequest;
-import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageReactionResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageReactionUserResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageReplyResponse;
+import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.ReadMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
 import com.example.chat_app_backend.common.enums.ConversationMemberRole;
@@ -17,15 +17,15 @@ import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
 import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.payload.response.CursorPageResponse;
+import com.example.chat_app_backend.repository.UserRepository;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -67,7 +67,9 @@ public class MessageService {
     this.userRepository = userRepository;
   }
 
-  /** Backward-compatible constructor for unit tests and integrations not needing author metadata. */
+  /**
+   * Backward-compatible constructor for unit tests and integrations not needing author metadata.
+   */
   public MessageService(
       MessageRepository messageRepository,
       ConversationRepository conversationRepository,
