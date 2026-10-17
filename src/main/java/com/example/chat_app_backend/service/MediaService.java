@@ -172,6 +172,9 @@ public class MediaService {
   }
 
   private String normalizeMimeType(String mimeType) {
-    return mimeType == null ? "" : mimeType.trim().toLowerCase(Locale.ROOT);
+    if (mimeType == null) return "";
+    // Browsers commonly send values such as audio/webm;codecs=opus.
+    // Storage validation is based on the media type, not optional parameters.
+    return mimeType.trim().toLowerCase(Locale.ROOT).split(";", 2)[0].trim();
   }
 }
