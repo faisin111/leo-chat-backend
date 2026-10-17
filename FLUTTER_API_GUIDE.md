@@ -277,7 +277,7 @@ Send body:
 }
 ```
 
-Message types: `TEXT`, `IMAGE`, `FILE`; `SYSTEM` is server-only. `content` is limited to 4000 characters and `clientMessageId` to 64. Message response also includes `senderUsername`, `senderDisplayName`, `replyTo` (a non-recursive replied-message preview), `reactions` (each emoji with `count` and every reacting user's `id`, `username`, and `displayName`), and `deleted`. Deleted messages keep their ID and timestamps, return `deleted: true`, and return `content: null` so clients can render “Message deleted”.
+Message types: `TEXT`, `IMAGE`, `FILE`, and `VOICE`; `SYSTEM` is server-only. `content` is limited to 4000 characters and `clientMessageId` to 64. Message response also includes `senderUsername`, `senderDisplayName`, `replyTo` (a non-recursive replied-message preview), `reactions` (each emoji with `count` and every reacting user's `id`, `username`, and `displayName`), and `deleted`. Deleted messages keep their ID and timestamps, return `deleted: true`, and return `content: null` so clients can render “Message deleted”.
 
 ## Media
 
@@ -288,7 +288,7 @@ All media routes require authentication. Storage must be enabled with a private 
 | POST | `/media/presign` | 200 | `{ "mimeType": "image/png", "sizeInBytes": 12345 }` |
 | POST | `/media/confirm` | 200 | `{ "storageKey": "users/{userId}/{id}.png" }` |
 
-Supported MIME types: images (`image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/avif`) and documents/files (`application/pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `text/plain`, `text/csv`, `application/zip`, `application/json`, `audio/mpeg`, `video/mp4`, `application/octet-stream`). The configured server limit is 10 MiB. Presign returns `uploadUrl`, `method` (`PUT`), `contentType`, `sizeInBytes`, `bucket`, `storageKey`, and `expiresIn`. Upload bytes directly to `uploadUrl`, preserving the returned content type and size. Confirm returns a private short-lived download `url`.
+Supported MIME types: images, documents, `audio/mpeg`, `audio/wav`, `audio/webm`, `audio/ogg`, and video types. The configured server limit is 10 MiB. Presign returns `uploadUrl`, `method` (`PUT`), `contentType`, `sizeInBytes`, `bucket`, `storageKey`, and `expiresIn`. Upload bytes directly to `uploadUrl`, preserving the returned content type and size. Confirm returns a private short-lived download `url`.
 
 ## Administration
 

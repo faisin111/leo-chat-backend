@@ -49,6 +49,8 @@ public class MediaService {
           Map.entry("application/json", ".json"),
           Map.entry("audio/mpeg", ".mp3"),
           Map.entry("audio/wav", ".wav"),
+          Map.entry("audio/webm", ".webm"),
+          Map.entry("audio/ogg", ".ogg"),
           Map.entry("video/mp4", ".mp4"),
           Map.entry("video/webm", ".webm"),
           Map.entry("application/octet-stream", ".bin"));

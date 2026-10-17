@@ -164,7 +164,7 @@ Send body:
 }
 ```
 
-Message types: `TEXT`, `IMAGE`, `FILE`; `SYSTEM` is server-only. `content` is limited to 4000 characters and `clientMessageId` to 64. Message response also includes `senderUsername`, `senderDisplayName`, `replyTo` (a non-recursive replied-message preview), `reactions` (each emoji with `count` and every reacting user's `id`, `username`, and `displayName`), and `deleted`. Deleted messages keep their ID and timestamps, return `deleted: true`, and return `content: null` so clients can render “Message deleted”.
+Message types: `TEXT`, `IMAGE`, `FILE`, and `VOICE`; `SYSTEM` is server-only. `content` is limited to 4000 characters and `clientMessageId` to 64. Message response also includes `senderUsername`, `senderDisplayName`, `replyTo` (a non-recursive replied-message preview), `reactions` (each emoji with `count` and every reacting user's `id`, `username`, and `displayName`), and `deleted`. Deleted messages keep their ID and timestamps, return `deleted: true`, and return `content: null` so clients can render “Message deleted”.
 
 ## Media
 
