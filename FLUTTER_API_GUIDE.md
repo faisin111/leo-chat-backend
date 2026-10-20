@@ -191,7 +191,7 @@ Token response:
 }
 ```
 
-Register response contains the created account and verification state. Recovery and verification endpoints intentionally return generic `202` responses so account existence is not exposed.
+Register response contains the created account, verification state, and access/refresh token fields. Registration creates a refresh session and sets auth cookies, so Flutter can open the main page immediately. Recovery and verification endpoints intentionally return generic `202` responses so account existence is not exposed.
 
 ## Users
 

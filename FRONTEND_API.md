@@ -78,7 +78,7 @@ Page response:
 | POST | `/auth/verify-email` | Public | 200 | `{ "token": "..." }` |
 | POST | `/auth/resend-verification` | Public | 202 | `{ "email": "..." }` |
 
-Registration validation: username 3–20 characters using letters, numbers, `.`, `_`, `-`; password 8–40 characters with upper, lower, number, and special character. Password changes and resets use 8–40 characters.
+Registration validation: username 3–20 characters using letters, numbers, `.`, `_`, `-`; password 8–40 characters with upper, lower, number, and special character. Password changes and resets use 8–40 characters. Successful registration also creates a refresh session, sets auth cookies, and returns access/refresh token fields, so the app can open the main page immediately.
 
 ## Users
 
