@@ -230,6 +230,22 @@ Connect to `/ws` with the access cookie or `Authorization: Bearer <accessToken>`
 
 Server broadcasts messages to `/topic/conversations.{conversationId}` and typing events to `/topic/conversations.{conversationId}.typing`. WebSocket errors use `{ "code": "FORBIDDEN|NOT_FOUND|BUSINESS_RULE|VALIDATION_ERROR|INTERNAL_ERROR", "message": "Request failed" }`.
 
+### WebRTC calling
+
+Calling uses WebRTC in the client and STOMP only for signaling. Subscribe to `/user/queue/calls`, then send to `/app/call.signal`:
+
+```json
+{
+  "conversationId": "conversation-uuid",
+  "callId": "call-uuid",
+  "targetUserId": "user-uuid",
+  "action": "OFFER",
+  "sdp": "..."
+}
+```
+
+Allowed actions: `OFFER` (`sdp`), `ANSWER` (`sdp`), `ICE_CANDIDATE` (`candidate`, optional `sdpMid`, `sdpMLineIndex`), `REJECT`, `BUSY`, `END`. The recipient receives the same envelope plus `fromUserId` and `fromUsername`. Both users must be active members of the conversation. Request microphone/camera and create the `RTCPeerConnection` in the frontend; never upload media bytes to this server.
+
 ## Response shapes
 
 User search item:

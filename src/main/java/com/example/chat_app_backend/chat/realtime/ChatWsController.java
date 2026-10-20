@@ -5,12 +5,15 @@ import com.example.chat_app_backend.chat.message.MessageService;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.ReadMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
+import com.example.chat_app_backend.chat.realtime.dto.CallSignalEvent;
+import com.example.chat_app_backend.chat.realtime.dto.CallSignalRequest;
 import com.example.chat_app_backend.chat.realtime.dto.TypingEvent;
 import com.example.chat_app_backend.chat.realtime.dto.TypingRequest;
 import com.example.chat_app_backend.chat.realtime.dto.WsReadRequest;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
+import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -31,14 +34,17 @@ public class ChatWsController {
   private final ConversationService conversationService;
   private final MessageService messageService;
   private final SimpMessagingTemplate messagingTemplate;
+  private final UserRepository userRepository;
 
   public ChatWsController(
       MessageService messageService,
       SimpMessagingTemplate messagingTemplate,
-      ConversationService conversationService) {
+      ConversationService conversationService,
+      UserRepository userRepository) {
     this.conversationService = conversationService;
     this.messageService = messageService;
     this.messagingTemplate = messagingTemplate;
+    this.userRepository = userRepository;
   }
 
   @MessageMapping("/chat.typing")
@@ -102,5 +108,42 @@ public class ChatWsController {
 
     // Send ACK back to sender
     // The service schedules the ACK before the broadcast, after the transaction commits.
+  }
+
+  /** Relay WebRTC signaling; the server does not handle audio/video bytes. */
+  @MessageMapping("/call.signal")
+  public void signalCall(
+      @Valid @Payload CallSignalRequest request, SimpMessageHeaderAccessor headerAccessor) {
+    Authentication auth = (Authentication) headerAccessor.getUser();
+    if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl user))
+      throw new MessagingException("Unauthorized");
+
+    conversationService.assertActiveMember(user.getId(), request.conversationId());
+    if (user.getId().equals(request.targetUserId()))
+      throw new BusinessRuleException("Cannot call yourself");
+    var target =
+        userRepository
+            .findById(request.targetUserId())
+            .orElseThrow(() -> new NotFoundException("Target user not found"));
+    conversationService.assertActiveMember(target.getId(), request.conversationId());
+
+    String action = request.action().trim().toUpperCase(java.util.Locale.ROOT);
+    if (!java.util.Set.of("OFFER", "ANSWER", "ICE_CANDIDATE", "REJECT", "BUSY", "END")
+        .contains(action)) {
+      throw new BusinessRuleException("Unsupported call signal action");
+    }
+    CallSignalEvent event =
+        new CallSignalEvent(
+            request.conversationId(),
+            request.callId(),
+            user.getId(),
+            user.getUsername(),
+            target.getId(),
+            action,
+            request.sdp(),
+            request.candidate(),
+            request.sdpMid(),
+            request.sdpMLineIndex());
+    messagingTemplate.convertAndSendToUser(target.getUsername(), "/queue/calls", event);
   }
 }

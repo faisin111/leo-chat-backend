@@ -99,6 +99,8 @@ Connect to `/ws` (native WebSocket or SockJS). Send a STOMP `CONNECT` frame with
 
 Subscribe to `/user/queue/acks` and `/user/queue/errors`. Conversation members can subscribe to `/topic/conversations.{conversationId}` and `/topic/conversations.{conversationId}.typing`. Arbitrary broker destinations and another user's queues are rejected.
 
+For calls, subscribe to `/user/queue/calls` and send WebRTC signaling envelopes to `/app/call.signal` (`OFFER`, `ANSWER`, `ICE_CANDIDATE`, `REJECT`, `BUSY`, or `END`). The backend validates both conversation members and relays signaling only; audio/video uses a client-side `RTCPeerConnection`.
+
 Send to `/app/chat.send`:
 
 ```json
