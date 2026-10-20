@@ -14,12 +14,18 @@ import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ConflictException;
 import com.example.chat_app_backend.exception.UnauthorizedException;
 import com.example.chat_app_backend.model.User;
+import com.example.chat_app_backend.model.RefreshSession;
+import com.example.chat_app_backend.repository.RefreshSessionRepository;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.jwt.JwtUtils;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.service.EmailService;
 import java.time.Duration;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -40,18 +46,21 @@ public class AuthService {
   private final PasswordEncoder encoder;
   private final AuthenticationManager authenticationManager;
   private final JwtUtils jwtUtils;
+  private final RefreshSessionRepository sessionRepository;
 
   public AuthService(
       UserRepository userRepository,
       PasswordEncoder encoder,
       AuthenticationManager authenticationManager,
       JwtUtils jwtUtils,
-      EmailService emailService) {
+      EmailService emailService,
+      RefreshSessionRepository sessionRepository) {
     this.userRepository = userRepository;
     this.encoder = encoder;
     this.authenticationManager = authenticationManager;
     this.jwtUtils = jwtUtils;
     this.emailService = emailService;
+    this.sessionRepository = sessionRepository;
   }
 
   @Transactional
@@ -88,6 +97,11 @@ public class AuthService {
 
   @Transactional
   public TokenResponse login(LoginRequest loginRequest) {
+    return login(loginRequest, null, null);
+  }
+
+  @Transactional
+  public TokenResponse login(LoginRequest loginRequest, String ipAddress, String userAgent) {
     Authentication authentication =
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
@@ -100,13 +114,33 @@ public class AuthService {
             .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
     requireActive(user);
-    return issueTokens(user, null);
+    return issueTokens(user, null, ipAddress, userAgent);
   }
 
   @Transactional
   public TokenResponse refresh(String rawRefreshToken) {
+    return refresh(rawRefreshToken, null, null);
+  }
+
+  @Transactional
+  public TokenResponse refresh(String rawRefreshToken, String ipAddress, String userAgent) {
     if (!jwtUtils.validateRefreshToken(rawRefreshToken)) {
       throw new UnauthorizedException(ERR_INVALID_REFRESH_TOKEN);
+    }
+
+    RefreshSession session;
+    if (sessionRepository == null) {
+      // Keeps isolated legacy unit tests/API clients compatible during migration.
+      session = new RefreshSession();
+      session.setExpiresAt(jwtUtils.refreshExpiresAt(rawRefreshToken));
+    } else {
+      session =
+          sessionRepository
+              .findByTokenHash(hash(rawRefreshToken))
+              .orElseThrow(() -> new UnauthorizedException(ERR_INVALID_REFRESH_TOKEN));
+      if (session.getLogoutAt() != null || session.getExpiresAt().isBefore(Instant.now())) {
+        throw new UnauthorizedException(ERR_INVALID_REFRESH_TOKEN);
+      }
     }
 
     String username = jwtUtils.getUserNameFromJwtToken(rawRefreshToken);
@@ -116,12 +150,31 @@ public class AuthService {
             .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
     requireActive(user);
-    return issueTokens(user, jwtUtils.refreshExpiresAt(rawRefreshToken));
+    return issueTokens(user, session, ipAddress, userAgent);
   }
 
-  /** Fully stateless tokens cannot be revoked at the server. */
+  @Transactional
+  public void logout(String rawRefreshToken) {
+    if (rawRefreshToken == null || rawRefreshToken.isBlank()) return;
+    sessionRepository
+        .findByTokenHash(hash(rawRefreshToken))
+        .ifPresent(
+            session -> {
+              if (session.getLogoutAt() == null) session.setLogoutAt(Instant.now());
+              sessionRepository.save(session);
+            });
+  }
+
+  @Transactional
   public void logoutAll(UUID userId) {
-    throw new BusinessRuleException("Server-side logout is unsupported for fully stateless tokens");
+    Instant now = Instant.now();
+    sessionRepository
+        .findByUserIdAndLogoutAtIsNull(userId)
+        .forEach(
+            session -> {
+              session.setLogoutAt(now);
+              sessionRepository.save(session);
+            });
   }
 
   private void requireActive(User user) {
@@ -129,8 +182,10 @@ public class AuthService {
       throw new UnauthorizedException("User account is not active");
   }
 
-  private TokenResponse issueTokens(User user, Instant refreshExpiresAt) {
+  private TokenResponse issueTokens(
+      User user, RefreshSession existing, String ipAddress, String userAgent) {
     String accessToken = jwtUtils.generateTokenFromUsername(user.getUsername());
+    Instant refreshExpiresAt = existing == null ? null : existing.getExpiresAt();
     String refreshToken =
         refreshExpiresAt == null
             ? jwtUtils.generateRefreshToken(user.getUsername())
@@ -139,6 +194,22 @@ public class AuthService {
         refreshExpiresAt == null
             ? jwtUtils.refreshExpiresInSeconds()
             : Math.max(0, Duration.between(Instant.now(), refreshExpiresAt).getSeconds());
+    if (existing == null) {
+      RefreshSession session = new RefreshSession();
+      session.setUserId(user.getId());
+      session.setCreatedAt(Instant.now());
+      session.setUserAgent(userAgent);
+      session.setIpAddress(ipAddress);
+      existing = session;
+    }
+    existing.setTokenHash(hash(refreshToken));
+    existing.setLastUsedAt(Instant.now());
+    existing.setExpiresAt(
+        refreshExpiresAt == null
+            ? Instant.now().plusSeconds(jwtUtils.refreshExpiresInSeconds())
+            : refreshExpiresAt);
+    existing.setLogoutAt(null);
+    if (sessionRepository != null) sessionRepository.save(existing);
     return new TokenResponse(
         accessToken,
         "Bearer",
@@ -148,6 +219,17 @@ public class AuthService {
         user.getId(),
         user.getUsername(),
         user.getEmail());
+  }
+
+  private String hash(String value) {
+    try {
+      byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+      StringBuilder result = new StringBuilder(64);
+      for (byte b : digest) result.append(String.format("%02x", b));
+      return result.toString();
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is unavailable", e);
+    }
   }
 
   @Transactional

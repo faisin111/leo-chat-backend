@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(
     name = "Authentication",
     description =
-        "Stateless browser cookie authentication, Bearer API compatibility and account recovery")
+        "JWT authentication with database-backed refresh sessions, browser cookies and account recovery")
 @SecurityRequirement(name = "bearerAuth")
 @SecurityRequirement(name = "cookieAuth")
 @StandardErrors
@@ -73,15 +73,16 @@ public class AuthController {
   @Operation(
       summary = "Log in",
       description =
-          "Set HttpOnly access/refresh cookies and return the JSON token pair for API compatibility. No server sessions are created.",
+        "Set HttpOnly access/refresh cookies, create a refresh session, and return the JSON token pair for API compatibility.",
       operationId = "auth_login")
   @ApiResponse(
       responseCode = "200",
       description = "Bearer tokens and expiry metadata",
       content = @Content(schema = @Schema(implementation = TokenResponse.class)))
   @PostMapping("/login")
-  public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
-    return tokens(authService.login(request));
+  public ResponseEntity<TokenResponse> login(
+      @Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+    return tokens(authService.login(request, servletRequest.getRemoteAddr(), servletRequest.getHeader("User-Agent")));
   }
 
   @SecurityRequirements
@@ -103,7 +104,7 @@ public class AuthController {
   @Operation(
       summary = "Refresh tokens",
       description =
-          "Read refresh JWT from the HttpOnly cookie, with JSON fallback for API clients. Original expiry is preserved; old JWTs remain valid.",
+        "Read refresh JWT from the stored HttpOnly session cookie, with JSON fallback for API clients. Refresh rotates the stored token while preserving the session.",
       operationId = "auth_refresh")
   @ApiResponse(
       responseCode = "200",
@@ -117,20 +118,25 @@ public class AuthController {
     if (refreshToken == null && request != null) refreshToken = request.refreshToken();
     if (refreshToken == null || refreshToken.isBlank())
       throw new UnauthorizedException("Refresh token is required");
-    return tokens(authService.refresh(refreshToken));
+    return tokens(
+        authService.refresh(
+            refreshToken,
+            servletRequest.getRemoteAddr(),
+            servletRequest.getHeader("User-Agent")));
   }
 
   @SecurityRequirements
   @Operation(
       summary = "Clear browser authentication cookies",
-      description = "Clear browser authentication cookies. Copied JWTs remain valid until expiry.",
+      description = "Revoke the current refresh session and clear browser authentication cookies. Existing access JWTs remain valid until expiry.",
       operationId = "auth_logout")
   @ApiResponse(
       responseCode = "204",
       description = "Client logout acknowledged; no response body",
       content = @Content)
   @PostMapping("/logout")
-  public ResponseEntity<Void> logout() {
+  public ResponseEntity<Void> logout(HttpServletRequest servletRequest) {
+    authService.logout(cookies.refreshToken(servletRequest));
     return ResponseEntity.noContent()
         .header(
             "Set-Cookie",
@@ -143,7 +149,7 @@ public class AuthController {
   @Operation(
       summary = "Reject server logout",
       description =
-          "Retained for compatibility. Fully stateless tokens cannot be revoked across devices.",
+        "Revoke every stored refresh session for the authenticated user.",
       operationId = "auth_logout_all")
   @ApiResponse(responseCode = "422", description = "Server-side revocation is unsupported")
   @PostMapping("/logout-all")

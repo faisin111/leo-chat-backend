@@ -5,6 +5,7 @@ import com.example.chat_app_backend.payload.request.UpdateProfileRequest;
 import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.payload.response.UserProfileResponse;
 import com.example.chat_app_backend.payload.response.UserSearchResponse;
+import com.example.chat_app_backend.payload.response.UserSessionResponse;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -94,7 +95,7 @@ public class UserController {
   @Operation(summary = "Get active sessions")
   @ApiResponse(responseCode = "200", description = "Successful response")
   @GetMapping("/me/sessions")
-  public ResponseEntity<List<Map<String, Object>>> getSessions(
+  public ResponseEntity<List<UserSessionResponse>> getSessions(
       @AuthenticationPrincipal UserDetailsImpl userDetails) {
     return userService.getSessions(userDetails.getId());
   }

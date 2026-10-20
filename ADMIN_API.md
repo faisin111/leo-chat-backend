@@ -57,7 +57,7 @@ Status rules:
 | 403 | Authenticated user is not admin, or CSRF is missing for cookie mode |
 | 404 | User, conversation, report, or message does not exist |
 | 409 | Database uniqueness or state conflict |
-| 422 | Business rule rejected; stateless force logout is unsupported |
+| 422 | Business rule rejected |
 | 500 | Unexpected server error |
 
 ## Stats
@@ -134,13 +134,11 @@ Admin target returns `403`.
 
 Request: no body.
 
-Response `422`:
+Response `200`:
 
 ```json
 {
-  "status": 422,
-  "error": "BUSINESS_RULE",
-  "message": "Server-side logout is unsupported for fully stateless tokens"
+  "message": "User forcefully logged out from all sessions."
 }
 ```
 

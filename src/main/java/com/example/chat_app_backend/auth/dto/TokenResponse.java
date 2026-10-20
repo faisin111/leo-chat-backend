@@ -3,7 +3,7 @@ package com.example.chat_app_backend.auth.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 
-@Schema(description = "Stateless bearer token response; clients own token storage and logout")
+@Schema(description = "Bearer token response backed by a server refresh session")
 public record TokenResponse(
     @Schema(description = "Short-lived access JWT") String accessToken,
     @Schema(description = "Authorization scheme", example = "Bearer") String tokenType,

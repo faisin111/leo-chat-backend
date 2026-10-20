@@ -5,11 +5,14 @@ import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.NotFoundException;
 import com.example.chat_app_backend.model.Profile;
+import com.example.chat_app_backend.model.RefreshSession;
 import com.example.chat_app_backend.model.User;
 import com.example.chat_app_backend.payload.request.UpdateProfileRequest;
 import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.payload.response.UserProfileResponse;
 import com.example.chat_app_backend.payload.response.UserSearchResponse;
+import com.example.chat_app_backend.payload.response.UserSessionResponse;
+import com.example.chat_app_backend.repository.RefreshSessionRepository;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import java.util.HashMap;
@@ -30,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
   @Autowired private UserRepository userRepository;
+  @Autowired private RefreshSessionRepository refreshSessionRepository;
 
   public ResponseEntity<UserProfileResponse> getUserById(UUID id) {
     Optional<User> userOpt = userRepository.findById(id);
@@ -159,13 +163,36 @@ public class UserService {
     return ResponseEntity.ok(presenceList);
   }
 
-  public ResponseEntity<List<Map<String, Object>>> getSessions(UUID userId) {
-    // Pure stateless: sessions are not stored in database
-    return ResponseEntity.ok(List.of());
+  public ResponseEntity<List<UserSessionResponse>> getSessions(UUID userId) {
+    List<UserSessionResponse> sessions =
+        refreshSessionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+            .map(this::toSessionResponse)
+            .toList();
+    return ResponseEntity.ok(sessions);
   }
 
   public ResponseEntity<MessageResponse> logoutSession(UUID userId, UUID sessionId) {
-    // Pure stateless: individual sessions are not stored in database
-    throw new BusinessRuleException("Remote logout is unsupported for fully stateless tokens");
+    RefreshSession session =
+        refreshSessionRepository
+            .findById(sessionId)
+            .orElseThrow(() -> new NotFoundException("Session not found"));
+    if (!userId.equals(session.getUserId())) throw new BusinessRuleException("Session not found");
+    if (session.getLogoutAt() == null) session.setLogoutAt(java.time.Instant.now());
+    refreshSessionRepository.save(session);
+    return ResponseEntity.ok(new MessageResponse("Session logged out successfully."));
+  }
+
+  private UserSessionResponse toSessionResponse(RefreshSession session) {
+    boolean active =
+        session.getLogoutAt() == null && session.getExpiresAt().isAfter(java.time.Instant.now());
+    return new UserSessionResponse(
+        session.getId(),
+        session.getCreatedAt(),
+        session.getLastUsedAt(),
+        session.getExpiresAt(),
+        session.getLogoutAt(),
+        session.getUserAgent(),
+        session.getIpAddress(),
+        active);
   }
 }

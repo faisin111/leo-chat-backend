@@ -15,7 +15,7 @@ Use `http` or `dio` for REST and `stomp_dart_client` for STOMP. Keep the base UR
 
 ## 2. Flutter authentication setup
 
-The backend is stateless. Login sets HttpOnly access and refresh cookies and also returns the token pair as JSON. Flutter cannot read HttpOnly cookies, so use a cookie jar (`dio_cookie_manager` + `cookie_jar`) and send cookies automatically. `POST /auth/refresh` refreshes from the refresh cookie. Do not put passwords or refresh tokens in logs.
+The backend uses short-lived access JWTs plus database-backed refresh sessions. Login sets HttpOnly access and refresh cookies and also returns the token pair as JSON. Flutter cannot read HttpOnly cookies, so use a cookie jar (`dio_cookie_manager` + `cookie_jar`) and send cookies automatically. `POST /auth/refresh` refreshes the stored refresh session. Do not put passwords or refresh tokens in logs.
 
 Recommended client flow:
 
@@ -106,7 +106,7 @@ All JSON requests use `Content-Type: application/json`. IDs are UUID strings. Ti
 
 1. `POST /auth/login` returns an access token and refresh token. Store the access token in memory and attach it as `Authorization: Bearer <accessToken>` on every API request.
 2. On a `401`, call `POST /auth/refresh` with `{ "refreshToken": "..." }`, replace the access token, then retry once.
-3. `POST /auth/logout` is client-side token deletion for Bearer clients. Fully stateless JWTs copied elsewhere remain valid until expiry.
+3. `POST /auth/logout` revokes the current refresh session and clears browser cookies. The current access JWT remains valid only until its short expiry.
 4. CSRF is only needed when using browser cookies without a Bearer header. Token clients do not call `/auth/csrf`.
 
 Bearer API requests:
@@ -167,7 +167,7 @@ Page response:
 | POST | `/auth/login` | Public | 200 | `username`, `password` |
 | POST | `/auth/refresh` | Cookie or JSON | 200 | optional `{ "refreshToken": "jwt" }` |
 | POST | `/auth/logout` | Public | 204 | none |
-| POST | `/auth/logout-all` | User | 422 | none; unsupported for stateless tokens |
+| POST | `/auth/logout-all` | User | 204 | revokes all refresh sessions |
 | POST | `/auth/change-password` | User | 200 | `currentPassword`, `newPassword` |
 | POST | `/auth/forgot-password` | Public | 202 | `{ "email": "..." }` |
 | POST | `/auth/reset-password` | Public | 200 | `token`, `newPassword` |
@@ -205,8 +205,8 @@ All user routes require authentication.
 | DELETE | `/users/me` | 200 | Deactivates own account; admin cannot use this |
 | GET | `/users/search?q=alice&page=0&size=20` | 200 | `q` required; page ≥ 0; size 1–100 |
 | GET | `/users/presence?ids={uuid}&ids={uuid}` | 200 | one or more UUIDs |
-| GET | `/users/me/sessions` | 200 | legacy compatibility; stateless session list is empty |
-| DELETE | `/users/me/sessions/{sessionId}` | 422 | server-side session logout unsupported |
+| GET | `/users/me/sessions` | 200 | stored sessions with device, IP, expiry, active state, and `logoutAt` |
+| DELETE | `/users/me/sessions/{sessionId}` | 200 | revoke one session and record `logoutAt` |
 
 Profile update body:
 
@@ -222,6 +222,23 @@ Profile update body:
 ```
 
 User profile response fields: `id`, `username`, `email`, `role`, `profilePictureUrl`, `phoneNumber`, `bio`, `age`, `region`, `isEmailVerified`.
+
+Session item:
+
+```json
+{
+  "sessionId": "uuid",
+  "createdAt": "2026-10-20T10:00:00Z",
+  "lastUsedAt": "2026-10-20T10:15:00Z",
+  "expiresAt": "2026-10-27T10:00:00Z",
+  "logoutAt": null,
+  "userAgent": "Flutter/3.x",
+  "ipAddress": "203.0.113.10",
+  "active": true
+}
+```
+
+`GET /users/me/sessions` returns current and historical sessions. `DELETE /users/me/sessions/{sessionId}` revokes one session and records `logoutAt`.
 
 ## Conversations
 
@@ -300,7 +317,7 @@ All admin routes require the single active `ROLE_ADMIN` account.
 | GET | `/admin/users?q=alice&status=ACTIVE&cursor=0&limit=50` | 200 | optional filters; limit 1–100 |
 | GET | `/admin/users/{id}` | 200 | none |
 | PATCH | `/admin/users/{id}/status` | 200 | `{ "status": "ACTIVE|DISABLED|BANNED", "reason": "..." }` |
-| POST | `/admin/users/{id}/force-logout` | 422 | unsupported for stateless JWTs |
+| POST | `/admin/users/{id}/force-logout` | 200 | revokes all refresh sessions for the user |
 | DELETE | `/admin/users/{id}` | 200 | soft-delete and anonymize |
 | GET | `/admin/conversations?q=team&status=ACTIVE&cursor=0` | 200 | optional filters |
 | PATCH | `/admin/conversations/{id}/status` | 200 | `{ "status": "ACTIVE|ARCHIVED|DELETED", "reason": "..." }` |
@@ -538,6 +555,6 @@ PATCH /api/v1/admin/reports/{id}
 DELETE /api/v1/admin/messages/{id}?reason=Spam%20content
 ```
 
-Each returns `200` with `{ "message": "..." }`. `POST /admin/users/{id}/force-logout` returns `422` because JWTs are fully stateless. `POST /admin/transfer-ownership` accepts `{ "targetUserId": "uuid", "password": "current-admin-password" }` and returns a success message.
+Each returns `200` with `{ "message": "..." }`. `POST /admin/users/{id}/force-logout` revokes all stored refresh sessions for the user. `POST /admin/transfer-ownership` accepts `{ "targetUserId": "uuid", "password": "current-admin-password" }` and returns a success message.
 
 Admin status values: user `ACTIVE|DISABLED|BANNED`; conversation `ACTIVE|ARCHIVED|DELETED`; report `OPEN|INVESTIGATING|RESOLVED|DISMISSED`.

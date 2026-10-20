@@ -116,7 +116,7 @@ class AuthApiTest {
   }
 
   @Test
-  void refreshPreservesExpiryAndAllowsOldTokenReuse() throws Exception {
+  void refreshPreservesExpiryAndRevokesOldToken() throws Exception {
     var initial = login();
     String refresh = initial.get("refreshToken").asText();
     var result =
@@ -137,7 +137,7 @@ class AuthApiTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("refreshToken", refresh))))
-        .andExpect(status().isOk());
+        .andExpect(status().isUnauthorized());
     mvc.perform(
             post("/api/v1/auth/refresh")
                 .with(csrf())
@@ -154,7 +154,7 @@ class AuthApiTest {
             post("/api/v1/auth/refresh")
                 .with(csrf())
                 .cookie(new Cookie("leo_chat_jwt_refresh", refresh)))
-        .andExpect(status().isOk());
+        .andExpect(status().isUnauthorized());
   }
 
   @Test
@@ -178,8 +178,7 @@ class AuthApiTest {
             post("/api/v1/auth/logout-all")
                 .with(csrf())
                 .header("Authorization", "Bearer " + access))
-        .andExpect(status().isUnprocessableEntity())
-        .andExpect(jsonPath("code").value("BUSINESS_RULE"));
+        .andExpect(status().isNoContent());
   }
 
   @Test
