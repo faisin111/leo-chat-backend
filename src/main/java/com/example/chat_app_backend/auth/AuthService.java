@@ -65,6 +65,12 @@ public class AuthService {
 
   @Transactional
   public RegisterResponse registerUser(RegisterRequest signUpRequest) {
+    return registerUser(signUpRequest, null, null);
+  }
+
+  @Transactional
+  public RegisterResponse registerUser(
+      RegisterRequest signUpRequest, String ipAddress, String userAgent) {
     if (userRepository.existsByUsername(signUpRequest.username())) {
       throw new ConflictException(AppConstants.ERR_USERNAME_TAKEN);
     }
@@ -91,8 +97,17 @@ public class AuthService {
     String token = jwtUtils.generateEmailVerificationToken(user.getEmail());
     emailService.sendVerificationEmail(user.getEmail(), token);
 
+    TokenResponse tokens = issueTokens(user, null, ipAddress, userAgent);
     return new RegisterResponse(
-        user.getId(), user.getUsername(), user.getDisplayName(), user.getRole());
+        user.getId(),
+        user.getUsername(),
+        user.getDisplayName(),
+        user.getRole(),
+        tokens.accessToken(),
+        tokens.tokenType(),
+        tokens.refreshToken(),
+        tokens.expiresIn(),
+        tokens.refreshExpiresIn());
   }
 
   @Transactional
@@ -202,7 +217,7 @@ public class AuthService {
       session.setIpAddress(ipAddress);
       existing = session;
     }
-    existing.setTokenHash(hash(refreshToken));
+    if (refreshToken != null) existing.setTokenHash(hash(refreshToken));
     existing.setLastUsedAt(Instant.now());
     existing.setExpiresAt(
         refreshExpiresAt == null
