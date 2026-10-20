@@ -88,7 +88,8 @@ public class AuthController {
   @SecurityRequirements
   @Operation(
       summary = "Register account",
-      description = "Create an account and email verification instructions.",
+      description =
+          "Create an account, create a refresh session, set auth cookies, and return tokens for immediate app access. Email verification instructions are also sent.",
       operationId = "auth_register")
   @ApiResponse(
       responseCode = "201",
@@ -96,8 +97,19 @@ public class AuthController {
       content = @Content(schema = @Schema(implementation = RegisterResponse.class)))
   @ApiResponse(responseCode = "409", description = "Username or email already exists")
   @PostMapping("/register")
-  public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerUser(request));
+  public ResponseEntity<RegisterResponse> register(
+      @Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
+    RegisterResponse response =
+        authService.registerUser(
+            request, servletRequest.getRemoteAddr(), servletRequest.getHeader("User-Agent"));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .cacheControl(CacheControl.noStore())
+        .header(
+            "Set-Cookie",
+            cookies.access(response.accessToken(), response.expiresIn()).toString(),
+            cookies.refresh(response.refreshToken(), response.refreshExpiresIn()).toString(),
+            cookies.clearLegacyAccess().toString())
+        .body(response);
   }
 
   @SecurityRequirements
