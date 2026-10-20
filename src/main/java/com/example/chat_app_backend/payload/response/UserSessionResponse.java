@@ -11,4 +11,7 @@ public record UserSessionResponse(
     Instant logoutAt,
     String userAgent,
     String ipAddress,
+    String deviceName,
+    String platform,
+    String appVersion,
     boolean active) {}

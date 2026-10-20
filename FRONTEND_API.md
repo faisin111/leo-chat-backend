@@ -121,11 +121,14 @@ Session response:
   "logoutAt": null,
   "userAgent": "Flutter/3.x",
   "ipAddress": "203.0.113.10",
+  "deviceName": "John's iPhone 15",
+  "platform": "ios",
+  "appVersion": "1.0.0",
   "active": true
 }
 ```
 
-`GET /users/me/sessions` returns current and historical sessions. `DELETE /users/me/sessions/{sessionId}` sets `logoutAt` and invalidates that refresh token.
+Send `X-Device-Name`, `X-Device-Platform`, and `X-App-Version` on login, registration, and refresh. `GET /users/me/sessions` returns current and historical sessions. `DELETE /users/me/sessions/{sessionId}` sets `logoutAt` and invalidates that refresh token.
 
 ## Conversations
 

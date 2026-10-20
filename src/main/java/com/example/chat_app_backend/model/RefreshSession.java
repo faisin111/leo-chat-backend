@@ -37,6 +37,15 @@ public class RefreshSession {
   @Column(length = 100)
   private String ipAddress;
 
+  @Column(length = 120)
+  private String deviceName;
+
+  @Column(length = 40)
+  private String platform;
+
+  @Column(length = 40)
+  private String appVersion;
+
   public UUID getId() { return id; }
   public UUID getUserId() { return userId; }
   public void setUserId(UUID userId) { this.userId = userId; }
@@ -54,4 +63,10 @@ public class RefreshSession {
   public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
   public String getIpAddress() { return ipAddress; }
   public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
+  public String getDeviceName() { return deviceName; }
+  public void setDeviceName(String deviceName) { this.deviceName = deviceName; }
+  public String getPlatform() { return platform; }
+  public void setPlatform(String platform) { this.platform = platform; }
+  public String getAppVersion() { return appVersion; }
+  public void setAppVersion(String appVersion) { this.appVersion = appVersion; }
 }

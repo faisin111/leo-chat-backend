@@ -65,12 +65,23 @@ public class AuthService {
 
   @Transactional
   public RegisterResponse registerUser(RegisterRequest signUpRequest) {
-    return registerUser(signUpRequest, null, null);
+    return registerUser(signUpRequest, null, null, null, null, null);
   }
 
   @Transactional
   public RegisterResponse registerUser(
       RegisterRequest signUpRequest, String ipAddress, String userAgent) {
+    return registerUser(signUpRequest, ipAddress, userAgent, null, null, null);
+  }
+
+  @Transactional
+  public RegisterResponse registerUser(
+      RegisterRequest signUpRequest,
+      String ipAddress,
+      String userAgent,
+      String deviceName,
+      String platform,
+      String appVersion) {
     if (userRepository.existsByUsername(signUpRequest.username())) {
       throw new ConflictException(AppConstants.ERR_USERNAME_TAKEN);
     }
@@ -97,7 +108,8 @@ public class AuthService {
     String token = jwtUtils.generateEmailVerificationToken(user.getEmail());
     emailService.sendVerificationEmail(user.getEmail(), token);
 
-    TokenResponse tokens = issueTokens(user, null, ipAddress, userAgent);
+    TokenResponse tokens =
+        issueTokens(user, null, ipAddress, userAgent, deviceName, platform, appVersion);
     return new RegisterResponse(
         user.getId(),
         user.getUsername(),
@@ -112,11 +124,22 @@ public class AuthService {
 
   @Transactional
   public TokenResponse login(LoginRequest loginRequest) {
-    return login(loginRequest, null, null);
+    return login(loginRequest, null, null, null, null, null);
   }
 
   @Transactional
   public TokenResponse login(LoginRequest loginRequest, String ipAddress, String userAgent) {
+    return login(loginRequest, ipAddress, userAgent, null, null, null);
+  }
+
+  @Transactional
+  public TokenResponse login(
+      LoginRequest loginRequest,
+      String ipAddress,
+      String userAgent,
+      String deviceName,
+      String platform,
+      String appVersion) {
     Authentication authentication =
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
@@ -129,16 +152,27 @@ public class AuthService {
             .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
     requireActive(user);
-    return issueTokens(user, null, ipAddress, userAgent);
+    return issueTokens(user, null, ipAddress, userAgent, deviceName, platform, appVersion);
   }
 
   @Transactional
   public TokenResponse refresh(String rawRefreshToken) {
-    return refresh(rawRefreshToken, null, null);
+    return refresh(rawRefreshToken, null, null, null, null, null);
   }
 
   @Transactional
   public TokenResponse refresh(String rawRefreshToken, String ipAddress, String userAgent) {
+    return refresh(rawRefreshToken, ipAddress, userAgent, null, null, null);
+  }
+
+  @Transactional
+  public TokenResponse refresh(
+      String rawRefreshToken,
+      String ipAddress,
+      String userAgent,
+      String deviceName,
+      String platform,
+      String appVersion) {
     if (!jwtUtils.validateRefreshToken(rawRefreshToken)) {
       throw new UnauthorizedException(ERR_INVALID_REFRESH_TOKEN);
     }
@@ -165,7 +199,7 @@ public class AuthService {
             .orElseThrow(() -> new UnauthorizedException(ERR_USER_NOT_FOUND));
 
     requireActive(user);
-    return issueTokens(user, session, ipAddress, userAgent);
+    return issueTokens(user, session, ipAddress, userAgent, deviceName, platform, appVersion);
   }
 
   @Transactional
@@ -198,7 +232,13 @@ public class AuthService {
   }
 
   private TokenResponse issueTokens(
-      User user, RefreshSession existing, String ipAddress, String userAgent) {
+      User user,
+      RefreshSession existing,
+      String ipAddress,
+      String userAgent,
+      String deviceName,
+      String platform,
+      String appVersion) {
     String accessToken = jwtUtils.generateTokenFromUsername(user.getUsername());
     Instant refreshExpiresAt = existing == null ? null : existing.getExpiresAt();
     String refreshToken =
@@ -213,9 +253,16 @@ public class AuthService {
       RefreshSession session = new RefreshSession();
       session.setUserId(user.getId());
       session.setCreatedAt(Instant.now());
-      session.setUserAgent(userAgent);
-      session.setIpAddress(ipAddress);
+      session.setUserAgent(limit(userAgent, 500));
+      session.setIpAddress(limit(ipAddress, 100));
+      session.setDeviceName(limit(deviceName, 120));
+      session.setPlatform(limit(platform, 40));
+      session.setAppVersion(limit(appVersion, 40));
       existing = session;
+    } else {
+      if (deviceName != null) existing.setDeviceName(deviceName);
+      if (platform != null) existing.setPlatform(platform);
+      if (appVersion != null) existing.setAppVersion(appVersion);
     }
     if (refreshToken != null) existing.setTokenHash(hash(refreshToken));
     existing.setLastUsedAt(Instant.now());
@@ -328,5 +375,11 @@ public class AuthService {
               String token = jwtUtils.generateEmailVerificationToken(user.getEmail());
               emailService.sendVerificationEmail(user.getEmail(), token);
             });
+  }
+
+  private String limit(String value, int max) {
+    if (value == null) return null;
+    String trimmed = value.trim();
+    return trimmed.length() <= max ? trimmed : trimmed.substring(0, max);
   }
 }

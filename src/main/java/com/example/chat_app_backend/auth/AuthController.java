@@ -82,7 +82,14 @@ public class AuthController {
   @PostMapping("/login")
   public ResponseEntity<TokenResponse> login(
       @Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
-    return tokens(authService.login(request, servletRequest.getRemoteAddr(), servletRequest.getHeader("User-Agent")));
+    return tokens(
+        authService.login(
+            request,
+            servletRequest.getRemoteAddr(),
+            servletRequest.getHeader("User-Agent"),
+            servletRequest.getHeader("X-Device-Name"),
+            servletRequest.getHeader("X-Device-Platform"),
+            servletRequest.getHeader("X-App-Version")));
   }
 
   @SecurityRequirements
@@ -101,7 +108,12 @@ public class AuthController {
       @Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
     RegisterResponse response =
         authService.registerUser(
-            request, servletRequest.getRemoteAddr(), servletRequest.getHeader("User-Agent"));
+            request,
+            servletRequest.getRemoteAddr(),
+            servletRequest.getHeader("User-Agent"),
+            servletRequest.getHeader("X-Device-Name"),
+            servletRequest.getHeader("X-Device-Platform"),
+            servletRequest.getHeader("X-App-Version"));
     return ResponseEntity.status(HttpStatus.CREATED)
         .cacheControl(CacheControl.noStore())
         .header(
@@ -134,7 +146,10 @@ public class AuthController {
         authService.refresh(
             refreshToken,
             servletRequest.getRemoteAddr(),
-            servletRequest.getHeader("User-Agent")));
+            servletRequest.getHeader("User-Agent"),
+            servletRequest.getHeader("X-Device-Name"),
+            servletRequest.getHeader("X-Device-Platform"),
+            servletRequest.getHeader("X-App-Version")));
   }
 
   @SecurityRequirements

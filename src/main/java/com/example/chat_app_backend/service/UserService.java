@@ -193,6 +193,9 @@ public class UserService {
         session.getLogoutAt(),
         session.getUserAgent(),
         session.getIpAddress(),
+        session.getDeviceName(),
+        session.getPlatform(),
+        session.getAppVersion(),
         active);
   }
 }
