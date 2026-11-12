@@ -24,6 +24,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -34,17 +35,20 @@ public class ChatWsController {
   private final ConversationService conversationService;
   private final MessageService messageService;
   private final SimpMessagingTemplate messagingTemplate;
+  private final SimpUserRegistry userRegistry;
   private final UserRepository userRepository;
 
   public ChatWsController(
       MessageService messageService,
       SimpMessagingTemplate messagingTemplate,
       ConversationService conversationService,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      SimpUserRegistry userRegistry) {
     this.conversationService = conversationService;
     this.messageService = messageService;
     this.messagingTemplate = messagingTemplate;
     this.userRepository = userRepository;
+    this.userRegistry = userRegistry;
   }
 
   @MessageMapping("/chat.typing")
@@ -144,6 +148,37 @@ public class ChatWsController {
             request.candidate(),
             request.sdpMid(),
             request.sdpMLineIndex());
+    if (userRegistry.getUser(target.getUsername()) == null) {
+      messagingTemplate.convertAndSendToUser(
+          user.getUsername(),
+          "/queue/calls",
+          new CallSignalEvent(
+              request.conversationId(),
+              request.callId(),
+              user.getId(),
+              user.getUsername(),
+              target.getId(),
+              "UNAVAILABLE",
+              null,
+              null,
+              null,
+              null));
+      return;
+    }
     messagingTemplate.convertAndSendToUser(target.getUsername(), "/queue/calls", event);
+    messagingTemplate.convertAndSendToUser(
+        user.getUsername(),
+        "/queue/calls",
+        new CallSignalEvent(
+            request.conversationId(),
+            request.callId(),
+            user.getId(),
+            user.getUsername(),
+            target.getId(),
+            "DELIVERED",
+            null,
+            null,
+            null,
+            null));
   }
 }

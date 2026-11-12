@@ -244,7 +244,7 @@ Calling uses WebRTC in the client and STOMP only for signaling. Subscribe to `/u
 }
 ```
 
-Allowed actions: `OFFER` (`sdp`), `ANSWER` (`sdp`), `ICE_CANDIDATE` (`candidate`, optional `sdpMid`, `sdpMLineIndex`), `REJECT`, `BUSY`, `END`. The recipient receives the same envelope plus `fromUserId` and `fromUsername`. Both users must be active members of the conversation. Request microphone/camera and create the `RTCPeerConnection` in the frontend; never upload media bytes to this server.
+Allowed actions: `OFFER` (`sdp`), `ANSWER` (`sdp`), `ICE_CANDIDATE` (`candidate`, optional `sdpMid`, `sdpMLineIndex`), `REJECT`, `BUSY`, `END`. The sender also receives `DELIVERED` or `UNAVAILABLE` on the same queue; fail the call immediately on `UNAVAILABLE` instead of waiting. The recipient receives the same envelope plus `fromUserId` and `fromUsername`. Both users must be active members of the conversation. Request microphone/camera and create the `RTCPeerConnection` in the frontend; never upload media bytes to this server.
 
 ## Response shapes
 
