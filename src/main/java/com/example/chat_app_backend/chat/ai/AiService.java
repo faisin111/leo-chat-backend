@@ -45,7 +45,7 @@ public class AiService {
   }
 
   public MessageResponse chat(UUID userId, AiChatRequest request) {
-    conversationService.assertActiveMember(userId, request.conversationId());
+    conversationService.ensureAiConversation(userId, request.conversationId());
     if (!enabled || clientProvider.getIfAvailable() == null) {
       throw new BusinessRuleException("AI assistant is not configured");
     }

@@ -47,6 +47,32 @@ public class ConversationService {
         .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
   }
 
+  /**
+   * Creates the user's AI conversation when the client starts with a locally generated UUID.
+   * Existing conversations still require normal membership.
+   */
+  @Transactional
+  public void ensureAiConversation(UUID userId, UUID conversationId) {
+    if (conversationId == null) {
+      throw new BusinessRuleException("AI conversation ID is required");
+    }
+    if (conversationRepository.existsById(conversationId)) {
+      assertActiveMember(userId, conversationId);
+      return;
+    }
+
+    Conversation conversation = new Conversation();
+    conversation.setId(conversationId);
+    conversation.setType(ConversationType.GROUP);
+    conversation.setTitle("LeoChat AI");
+    conversation.setCreatedBy(userId);
+    conversationRepository.save(conversation);
+
+    ConversationMember member = new ConversationMember();
+    member.setId(new ConversationMemberId(conversationId, userId));
+    memberRepository.save(member);
+  }
+
   @Transactional
   public ConversationResponse getOrCreateDirectChat(UUID userId1, UUID userId2) {
     if (userId1.equals(userId2)) {
