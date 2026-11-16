@@ -232,6 +232,20 @@ Connect to `/ws` with the access cookie or `Authorization: Bearer <accessToken>`
 
 Server broadcasts messages to `/topic/conversations.{conversationId}` and typing events to `/topic/conversations.{conversationId}.typing`. WebSocket errors use `{ "code": "FORBIDDEN|NOT_FOUND|BUSINESS_RULE|VALIDATION_ERROR|INTERNAL_ERROR", "message": "Request failed" }`.
 
+### AI assistant
+
+Set `GEMINI_ENABLED=true` and configure `GEMINI_API_KEY` on the backend only. Never send the key to web or mobile clients. Ask AI over REST:
+
+```http
+POST /api/v1/ai/chat
+```
+
+```json
+{"conversationId":"conversation-uuid","prompt":"Summarize this chat","clientMessageId":"ai-try-1"}
+```
+
+The response is a persisted message with `aiGenerated: true` and is broadcast to the conversation topic. For STOMP clients, subscribe to the normal conversation topic and send the same payload to `/app/ai.chat`.
+
 ### WebRTC calling
 
 Calling uses WebRTC in the client and STOMP only for signaling. Subscribe to `/user/queue/calls`, then send to `/app/call.signal`:

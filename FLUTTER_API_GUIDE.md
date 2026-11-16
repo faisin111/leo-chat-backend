@@ -344,6 +344,10 @@ Connect to `/ws` with the access cookie or `Authorization: Bearer <accessToken>`
 
 Server broadcasts messages to `/topic/conversations.{conversationId}` and typing events to `/topic/conversations.{conversationId}.typing`. WebSocket errors use `{ "code": "FORBIDDEN|NOT_FOUND|BUSINESS_RULE|VALIDATION_ERROR|INTERNAL_ERROR", "message": "Request failed" }`.
 
+### AI assistant
+
+The backend calls Gemini. Configure `GEMINI_ENABLED=true`, `GEMINI_API_KEY`, and optional `GEMINI_MODEL` on the server. Keep the key out of Flutter. REST request: `POST /api/v1/ai/chat` with `{ "conversationId": "...", "prompt": "..." }`. The response is saved and broadcast as a normal message with `aiGenerated: true`. STOMP clients may send the same JSON to `/app/ai.chat` after subscribing to `/topic/conversations.{conversationId}`.
+
 ### Flutter STOMP example
 
 ```dart

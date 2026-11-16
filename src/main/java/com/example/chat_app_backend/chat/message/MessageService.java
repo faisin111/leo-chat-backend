@@ -185,6 +185,31 @@ public class MessageService {
     return response;
   }
 
+  @Transactional
+  public MessageResponse sendAiMessage(UUID convId, String content) {
+    conversationRepository
+        .lockById(convId)
+        .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    Instant now = Instant.now();
+    conversationRepository.incrementSeqAndTimestamp(convId, now);
+    long nextSeq =
+        conversationRepository
+            .getLastSeq(convId)
+            .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    Message message = new Message();
+    message.setConversationId(convId);
+    message.setSenderId(null);
+    message.setAiGenerated(true);
+    message.setSeq(nextSeq);
+    message.setClientMessageId("ai-" + UUID.randomUUID());
+    message.setType(MessageType.TEXT);
+    message.setContent(content);
+    message.setCreatedAt(now);
+    MessageResponse response = mapToResponse(messageRepository.saveAndFlush(message));
+    broadcastAfterCommit(convId, response);
+    return response;
+  }
+
   @Transactional(readOnly = true)
   public CursorPageResponse<MessageResponse> getHistory(
       UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit) {
@@ -339,6 +364,7 @@ public class MessageService {
         m.getId(),
         m.getConversationId(),
         m.getSenderId(),
+        m.isAiGenerated(),
         sender == null ? null : sender.getUsername(),
         sender == null ? null : sender.getDisplayName(),
         m.getSeq(),
@@ -404,6 +430,8 @@ public class MessageService {
   }
 
   private User findUser(UUID userId) {
-    return userRepository == null ? null : userRepository.findById(userId).orElse(null);
+    return userRepository == null || userId == null
+        ? null
+        : userRepository.findById(userId).orElse(null);
   }
 }

@@ -26,7 +26,12 @@ public class WsAuthInterceptor implements ChannelInterceptor {
   private static final Pattern CONVERSATION_TOPIC =
       Pattern.compile("^/topic/conversations\\.([0-9a-fA-F-]{36})(?:\\.typing)?$");
   private static final Set<String> SEND_DESTINATIONS =
-      Set.of("/app/chat.send", "/app/chat.typing", "/app/chat.read", "/app/call.signal");
+      Set.of(
+          "/app/chat.send",
+          "/app/chat.typing",
+          "/app/chat.read",
+          "/app/call.signal",
+          "/app/ai.chat");
   private static final Set<String> USER_QUEUES =
       Set.of(
           "/user/queue/acks",

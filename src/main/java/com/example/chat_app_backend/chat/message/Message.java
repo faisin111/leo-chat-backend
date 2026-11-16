@@ -24,8 +24,10 @@ public class Message {
   @Column(nullable = false)
   private UUID conversationId;
 
+  @Column private UUID senderId;
+
   @Column(nullable = false)
-  private UUID senderId;
+  private boolean aiGenerated = false;
 
   @Column(nullable = false)
   private long seq;
@@ -73,6 +75,14 @@ public class Message {
 
   public UUID getSenderId() {
     return senderId;
+  }
+
+  public boolean isAiGenerated() {
+    return aiGenerated;
+  }
+
+  public void setAiGenerated(boolean aiGenerated) {
+    this.aiGenerated = aiGenerated;
   }
 
   public void setSenderId(UUID senderId) {

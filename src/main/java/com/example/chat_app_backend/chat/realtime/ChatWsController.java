@@ -1,5 +1,7 @@
 package com.example.chat_app_backend.chat.realtime;
 
+import com.example.chat_app_backend.chat.ai.AiService;
+import com.example.chat_app_backend.chat.ai.dto.AiChatRequest;
 import com.example.chat_app_backend.chat.conversation.ConversationService;
 import com.example.chat_app_backend.chat.message.MessageService;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
@@ -37,18 +39,21 @@ public class ChatWsController {
   private final SimpMessagingTemplate messagingTemplate;
   private final SimpUserRegistry userRegistry;
   private final UserRepository userRepository;
+  private final AiService aiService;
 
   public ChatWsController(
       MessageService messageService,
       SimpMessagingTemplate messagingTemplate,
       ConversationService conversationService,
       UserRepository userRepository,
-      SimpUserRegistry userRegistry) {
+      SimpUserRegistry userRegistry,
+      AiService aiService) {
     this.conversationService = conversationService;
     this.messageService = messageService;
     this.messagingTemplate = messagingTemplate;
     this.userRepository = userRepository;
     this.userRegistry = userRegistry;
+    this.aiService = aiService;
   }
 
   @MessageMapping("/chat.typing")
@@ -180,5 +185,14 @@ public class ChatWsController {
             null,
             null,
             null));
+  }
+
+  @MessageMapping("/ai.chat")
+  public void chatWithAi(
+      @Valid @Payload AiChatRequest request, SimpMessageHeaderAccessor headerAccessor) {
+    Authentication auth = (Authentication) headerAccessor.getUser();
+    if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl user))
+      throw new MessagingException("Unauthorized");
+    aiService.chat(user.getId(), request);
   }
 }
