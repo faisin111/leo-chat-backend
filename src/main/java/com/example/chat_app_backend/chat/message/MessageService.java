@@ -6,6 +6,7 @@ import com.example.chat_app_backend.chat.conversation.ConversationRepository;
 import com.example.chat_app_backend.chat.conversation.ConversationService;
 import com.example.chat_app_backend.chat.message.dto.AddReactionRequest;
 import com.example.chat_app_backend.chat.message.dto.EditMessageRequest;
+import com.example.chat_app_backend.chat.message.dto.MessageAttachmentResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageReactionResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageReactionUserResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageReplyResponse;
@@ -47,6 +48,7 @@ public class MessageService {
   private final SimpMessagingTemplate messagingTemplate;
   private final ConversationService conversationService;
   private final MessageReactionRepository reactionRepository;
+  private final MessageAttachmentRepository attachmentRepository;
   private final UserRepository userRepository;
 
   @Autowired
@@ -57,7 +59,8 @@ public class MessageService {
       SimpMessagingTemplate messagingTemplate,
       ConversationService conversationService,
       MessageReactionRepository reactionRepository,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      MessageAttachmentRepository attachmentRepository) {
     this.messageRepository = messageRepository;
     this.conversationRepository = conversationRepository;
     this.memberRepository = memberRepository;
@@ -65,6 +68,7 @@ public class MessageService {
     this.conversationService = conversationService;
     this.reactionRepository = reactionRepository;
     this.userRepository = userRepository;
+    this.attachmentRepository = attachmentRepository;
   }
 
   /**
@@ -84,6 +88,7 @@ public class MessageService {
         messagingTemplate,
         conversationService,
         reactionRepository,
+        null,
         null);
   }
 
@@ -112,11 +117,15 @@ public class MessageService {
     if (request.clientMessageId() == null
         || request.clientMessageId().isBlank()
         || request.clientMessageId().length() > 64
-        || request.content() == null
-        || request.content().isBlank()
-        || request.content().length() > 4000) {
+        || request.content() != null && request.content().length() > 4000) {
       throw new BusinessRuleException("Invalid message content or clientMessageId");
     }
+    boolean hasAttachment = request.storageKey() != null && !request.storageKey().isBlank();
+    if ((type == MessageType.TEXT && (request.content() == null || request.content().isBlank()))
+        || (type != MessageType.TEXT && !hasAttachment)) {
+      throw new BusinessRuleException("Content or uploaded attachment is required");
+    }
+    if (hasAttachment) validateAttachment(senderId, request);
     // Serialize retries and sequence allocation before looking up the idempotency key.
     conversationRepository
         .lockById(convId)
@@ -154,11 +163,20 @@ public class MessageService {
         throw new BusinessRuleException("Reply belongs to another conversation");
     }
     msg.setType(type);
-    msg.setContent(request.content().strip());
+    msg.setContent(request.content() == null ? null : request.content().strip());
     msg.setCreatedAt(now);
     msg.setReplyToId(request.replyToId());
 
     msg = messageRepository.saveAndFlush(msg);
+    if (hasAttachment) {
+      MessageAttachment attachment = new MessageAttachment();
+      attachment.setMessageId(msg.getId());
+      attachment.setStorageKey(request.storageKey().strip());
+      attachment.setFileName(request.fileName());
+      attachment.setMimeType(request.mimeType());
+      attachment.setSizeBytes(request.sizeBytes());
+      attachmentRepository.save(attachment);
+    }
     MessageResponse response = mapToResponse(msg);
     if (ackUsername != null)
       afterCommit(
@@ -333,7 +351,37 @@ public class MessageService {
         m.getCreatedAt(),
         m.getEditedAt(),
         m.getDeletedAt(),
-        m.getDeletedAt() != null);
+        m.getDeletedAt() != null,
+        mapAttachments(m.getId()));
+  }
+
+  private List<MessageAttachmentResponse> mapAttachments(UUID messageId) {
+    if (attachmentRepository == null) return List.of();
+    return attachmentRepository.findByMessageId(messageId).stream()
+        .map(
+            attachment ->
+                new MessageAttachmentResponse(
+                    attachment.getId(),
+                    attachment.getStorageKey(),
+                    attachment.getFileName(),
+                    attachment.getMimeType(),
+                    attachment.getSizeBytes()))
+        .collect(Collectors.toList());
+  }
+
+  private void validateAttachment(UUID senderId, SendMessageRequest request) {
+    String key = request.storageKey().strip();
+    if (!key.startsWith("users/" + senderId + "/") || key.length() > 300 || key.contains("..")) {
+      throw new ForbiddenException("Attachment does not belong to the sender");
+    }
+    if (request.mimeType() == null || request.mimeType().isBlank()) {
+      throw new BusinessRuleException("Attachment MIME type is required");
+    }
+    if (request.type() != null
+        && "VOICE".equalsIgnoreCase(request.type())
+        && !request.mimeType().toLowerCase(Locale.ROOT).startsWith("audio/")) {
+      throw new BusinessRuleException("VOICE messages require an audio attachment");
+    }
   }
 
   private List<MessageReactionResponse> mapReactions(UUID messageId) {

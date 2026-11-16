@@ -152,6 +152,36 @@ public class MediaService {
     }
   }
 
+  public Map<String, Object> downloadUrl(String storageKey) {
+    ensureEnabled();
+    if (storageKey == null
+        || !storageKey.equals(storageKey.trim())
+        || !storageKey.startsWith("users/")
+        || storageKey.length() > 300
+        || storageKey.contains("..")) {
+      throw new BusinessRuleException("Invalid storage key");
+    }
+    GetObjectRequest getRequest =
+        GetObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build();
+    try {
+      PresignedGetObjectRequest signed =
+          presigner
+              .getObject()
+              .presignGetObject(
+                  GetObjectPresignRequest.builder()
+                      .signatureDuration(Duration.ofSeconds(properties.downloadExpirySeconds()))
+                      .getObjectRequest(getRequest)
+                      .build());
+      return Map.of(
+          "bucket", properties.bucket(),
+          "storageKey", storageKey,
+          "url", signed.url().toString(),
+          "expiresIn", properties.downloadExpirySeconds());
+    } catch (SdkException e) {
+      throw new BusinessRuleException("Storage provider is unavailable");
+    }
+  }
+
   private void ensureEnabled() {
     if (!properties.enabled()
         || presigner.getIfAvailable() == null

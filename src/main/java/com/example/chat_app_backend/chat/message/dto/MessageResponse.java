@@ -29,4 +29,6 @@ public record MessageResponse(
     @Schema(description = "Edit time in UTC, if edited") Instant editedAt,
     @Schema(description = "Deletion time in UTC, if deleted") Instant deletedAt,
     @Schema(description = "True when the message was deleted; content is then null")
-        boolean deleted) {}
+        boolean deleted,
+    @Schema(description = "Uploaded files attached to this message")
+        List<MessageAttachmentResponse> attachments) {}
