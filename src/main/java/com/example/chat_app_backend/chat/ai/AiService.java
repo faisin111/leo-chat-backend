@@ -11,10 +11,13 @@ import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.google.genai.Client;
 import com.google.genai.types.GenerateContentResponse;
+import com.google.genai.types.GenerateContentConfig;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.net.SocketTimeoutException;
+import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -70,7 +73,13 @@ public class AiService {
             + prompt;
     try {
       GenerateContentResponse response =
-          clientProvider.getObject().models.generateContent(model, fullPrompt, null);
+          clientProvider
+              .getObject()
+              .models
+              .generateContent(
+                  model,
+                  fullPrompt,
+                  GenerateContentConfig.builder().maxOutputTokens(1024).temperature(0.3f).build());
       String text = response.text();
       if (text == null || text.isBlank())
         throw new BusinessRuleException("AI returned no response");
@@ -80,8 +89,17 @@ public class AiService {
     } catch (BusinessRuleException e) {
       throw e;
     } catch (Exception e) {
+      if (hasTimeout(e)) throw new BusinessRuleException("AI provider timed out; retry shortly");
       throw new BusinessRuleException("AI provider is unavailable");
     }
+  }
+
+  private static boolean hasTimeout(Throwable error) {
+    for (Throwable current = error; current != null; current = current.getCause()) {
+      if (current instanceof TimeoutException || current instanceof SocketTimeoutException)
+        return true;
+    }
+    return false;
   }
 
   public ConversationResponse getOrCreateConversation(UUID userId) {
