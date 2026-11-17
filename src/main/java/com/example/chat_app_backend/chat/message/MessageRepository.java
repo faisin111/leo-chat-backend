@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
+  void deleteByConversationId(UUID conversationId);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("SELECT m FROM Message m WHERE m.id = :id")
   Optional<Message> lockById(@Param("id") UUID id);

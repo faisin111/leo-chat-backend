@@ -2,6 +2,7 @@ package com.example.chat_app_backend.chat.ai;
 
 import com.example.chat_app_backend.chat.ai.dto.AiChatRequest;
 import com.example.chat_app_backend.chat.conversation.ConversationService;
+import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.message.Message;
 import com.example.chat_app_backend.chat.message.MessageRepository;
 import com.example.chat_app_backend.chat.message.MessageService;
@@ -45,7 +46,8 @@ public class AiService {
   }
 
   public MessageResponse chat(UUID userId, AiChatRequest request) {
-    conversationService.ensureAiConversation(userId, request.conversationId());
+    UUID conversationId =
+        conversationService.ensureAiConversation(userId, request.conversationId());
     if (!enabled || clientProvider.getIfAvailable() == null) {
       throw new BusinessRuleException("AI assistant is not configured");
     }
@@ -56,9 +58,9 @@ public class AiService {
             : request.clientMessageId();
     messageService.sendMessage(
         userId,
-        request.conversationId(),
-        new SendMessageRequest(request.conversationId(), clientMessageId, "TEXT", prompt, null));
-    String context = buildContext(request.conversationId());
+        conversationId,
+        new SendMessageRequest(conversationId, clientMessageId, "TEXT", prompt, null));
+    String context = buildContext(conversationId);
     String fullPrompt =
         "You are Leo AI, the helpful assistant inside a private chat application. "
             + "Answer clearly and concisely. Never claim to have performed an action you did not perform. "
@@ -72,12 +74,20 @@ public class AiService {
       String text = response.text();
       if (text == null || text.isBlank())
         throw new BusinessRuleException("AI returned no response");
-      return messageService.sendAiMessage(request.conversationId(), text.strip());
+      return messageService.sendAiMessage(conversationId, text.strip());
     } catch (BusinessRuleException e) {
       throw e;
     } catch (Exception e) {
       throw new BusinessRuleException("AI provider is unavailable");
     }
+  }
+
+  public ConversationResponse getOrCreateConversation(UUID userId) {
+    return conversationService.getOrCreateAiConversation(userId);
+  }
+
+  public void deleteConversation(UUID userId) {
+    conversationService.deleteAiConversation(userId);
   }
 
   private String buildContext(UUID conversationId) {

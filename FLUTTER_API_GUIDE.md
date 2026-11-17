@@ -350,6 +350,8 @@ The backend calls Gemini. Configure `GEMINI_ENABLED=true`, `GEMINI_API_KEY`, and
 
 Use `POST /api/v1/ai/actions` for `SEARCH_USERS`, `LIST_CONVERSATIONS`, `GET_BLOCKED_USERS`, `GET_USER`, `SEND_MESSAGE`, and `START_CALL`. Write actions require `confirmed: true` after showing the confirmation response.
 
+Open AI tab with `POST /api/v1/ai/conversation`; this is idempotent and returns one AI conversation per user. Delete it with `DELETE /api/v1/ai/conversation`. Leave normal chats with `DELETE /api/v1/conversations/{id}`.
+
 ### Flutter STOMP example
 
 ```dart

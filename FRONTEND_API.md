@@ -248,6 +248,8 @@ The response is a persisted message with `aiGenerated: true` and is broadcast to
 
 Use `POST /api/v1/ai/actions` for assistant actions. Read actions are `SEARCH_USERS`, `LIST_CONVERSATIONS`, `GET_BLOCKED_USERS`, and `GET_USER`. `SEND_MESSAGE` and `START_CALL` require a confirmation response from the user, then a second request with `confirmed: true`.
 
+Use `POST /api/v1/ai/conversation` when opening AI tab. It returns one server-owned AI conversation per user. Do not generate a new AI conversation ID in the client. Use `DELETE /api/v1/ai/conversation` to permanently remove AI chat. Use `DELETE /api/v1/conversations/{id}` to leave a normal chat.
+
 ### WebRTC calling
 
 Calling uses WebRTC in the client and STOMP only for signaling. Subscribe to `/user/queue/calls`, then send to `/app/call.signal`:

@@ -23,4 +23,8 @@ public interface ConversationMemberRepository
   List<ConversationMember> findByIdUserId(UUID userId);
 
   Optional<ConversationMember> findByIdConversationIdAndIdUserId(UUID conversationId, UUID userId);
+
+  long countByIdConversationIdAndLeftAtIsNull(UUID conversationId);
+
+  void deleteByIdConversationId(UUID conversationId);
 }

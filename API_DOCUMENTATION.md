@@ -105,6 +105,8 @@ Subscribe to `/user/queue/acks` and `/user/queue/errors`. Conversation members c
 
 `POST /api/v1/ai/actions` accepts `SEARCH_USERS`, `LIST_CONVERSATIONS`, `GET_BLOCKED_USERS`, `GET_USER`, `SEND_MESSAGE`, and `START_CALL`. Read actions execute directly. Message and call actions return `confirmationRequired: true`; resend with `confirmed: true` only after user approval.
 
+Personal AI conversation endpoints: `POST /api/v1/ai/conversation` gets or creates the single AI chat for the authenticated user and never creates duplicates. `DELETE /api/v1/ai/conversation` permanently deletes that AI conversation, messages, reactions, attachments, and membership. `DELETE /api/v1/conversations/{id}` leaves a normal chat; it is permanently removed only when its last active member leaves.
+
 For calls, subscribe to `/user/queue/calls` and send WebRTC signaling envelopes to `/app/call.signal` (`OFFER`, `ANSWER`, `ICE_CANDIDATE`, `REJECT`, `BUSY`, or `END`). The sender receives `DELIVERED` or `UNAVAILABLE` on the same queue. The backend validates both conversation members and relays signaling only; audio/video uses a client-side `RTCPeerConnection`.
 
 Send to `/app/chat.send`:

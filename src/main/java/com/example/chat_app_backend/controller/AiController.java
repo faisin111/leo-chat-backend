@@ -38,4 +38,18 @@ public class AiController {
       @AuthenticationPrincipal UserDetailsImpl user, @Valid @RequestBody AiChatRequest request) {
     return ResponseEntity.ok(aiService.chat(user.getId(), request));
   }
+
+  @Operation(summary = "Get or create the user's single personal AI conversation")
+  @PostMapping("/conversation")
+  public ResponseEntity<com.example.chat_app_backend.chat.conversation.dto.ConversationResponse>
+      getOrCreateConversation(@AuthenticationPrincipal UserDetailsImpl user) {
+    return ResponseEntity.ok(aiService.getOrCreateConversation(user.getId()));
+  }
+
+  @Operation(summary = "Permanently delete the user's personal AI conversation")
+  @org.springframework.web.bind.annotation.DeleteMapping("/conversation")
+  public ResponseEntity<Void> deleteConversation(@AuthenticationPrincipal UserDetailsImpl user) {
+    aiService.deleteConversation(user.getId());
+    return ResponseEntity.noContent().build();
+  }
 }

@@ -3,6 +3,7 @@ package com.example.chat_app_backend.chat.conversation;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,15 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
   Optional<Conversation> lockById(@Param("id") UUID id);
 
   Optional<Conversation> findByDirectKey(String directKey);
+
+  @Query(
+      "SELECT c FROM Conversation c JOIN ConversationMember m ON c.id = m.id.conversationId WHERE c.type = com.example.chat_app_backend.chat.conversation.ConversationType.AI AND c.directKey = :directKey AND m.id.userId = :userId AND m.leftAt IS NULL")
+  Optional<Conversation> findActiveAiConversation(
+      @Param("directKey") String directKey, @Param("userId") UUID userId);
+
+  @Query(
+      "SELECT c FROM Conversation c JOIN ConversationMember m ON c.id = m.id.conversationId WHERE c.title = 'LeoChat AI' AND m.id.userId = :userId AND m.leftAt IS NULL ORDER BY c.createdAt ASC")
+  List<Conversation> findLegacyAiConversations(@Param("userId") UUID userId);
 
   @Modifying
   @Query(

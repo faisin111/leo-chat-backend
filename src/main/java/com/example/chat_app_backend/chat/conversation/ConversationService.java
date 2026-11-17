@@ -8,6 +8,9 @@ import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest
 import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
 import com.example.chat_app_backend.common.enums.ConversationMemberRole;
+import com.example.chat_app_backend.chat.message.MessageAttachmentRepository;
+import com.example.chat_app_backend.chat.message.MessageReactionRepository;
+import com.example.chat_app_backend.chat.message.MessageRepository;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
@@ -29,14 +32,23 @@ public class ConversationService {
   private final ConversationRepository conversationRepository;
   private final ConversationMemberRepository memberRepository;
   private final UserRepository userRepository;
+  private final MessageRepository messageRepository;
+  private final MessageAttachmentRepository attachmentRepository;
+  private final MessageReactionRepository reactionRepository;
 
   public ConversationService(
       ConversationRepository conversationRepository,
       ConversationMemberRepository memberRepository,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      MessageRepository messageRepository,
+      MessageAttachmentRepository attachmentRepository,
+      MessageReactionRepository reactionRepository) {
     this.conversationRepository = conversationRepository;
     this.memberRepository = memberRepository;
     this.userRepository = userRepository;
+    this.messageRepository = messageRepository;
+    this.attachmentRepository = attachmentRepository;
+    this.reactionRepository = reactionRepository;
   }
 
   @Transactional(readOnly = true)
@@ -52,25 +64,71 @@ public class ConversationService {
    * Existing conversations still require normal membership.
    */
   @Transactional
-  public void ensureAiConversation(UUID userId, UUID conversationId) {
-    if (conversationId == null) {
-      throw new BusinessRuleException("AI conversation ID is required");
+  public UUID ensureAiConversation(UUID userId, UUID requestedConversationId) {
+    String directKey = "ai:" + userId;
+    var existing = conversationRepository.findByDirectKey(directKey);
+    if (existing.isPresent()) {
+      Conversation conversation = existing.get();
+      assertActiveMember(userId, conversation.getId());
+      return conversation.getId();
     }
-    if (conversationRepository.existsById(conversationId)) {
-      assertActiveMember(userId, conversationId);
-      return;
+
+    var legacy = conversationRepository.findLegacyAiConversations(userId);
+    if (!legacy.isEmpty()) {
+      Conversation conversation = legacy.get(0);
+      conversation.setType(ConversationType.AI);
+      conversation.setDirectKey(directKey);
+      conversationRepository.save(conversation);
+      return conversation.getId();
     }
 
     Conversation conversation = new Conversation();
-    conversation.setId(conversationId);
-    conversation.setType(ConversationType.GROUP);
+    conversation.setId(requestedConversationId == null ? UUID.randomUUID() : requestedConversationId);
+    conversation.setType(ConversationType.AI);
     conversation.setTitle("LeoChat AI");
+    conversation.setDirectKey(directKey);
     conversation.setCreatedBy(userId);
     conversationRepository.save(conversation);
 
     ConversationMember member = new ConversationMember();
-    member.setId(new ConversationMemberId(conversationId, userId));
+    member.setId(new ConversationMemberId(conversation.getId(), userId));
+    member.setRole("OWNER");
     memberRepository.save(member);
+    return conversation.getId();
+  }
+
+  @Transactional
+  public ConversationResponse getOrCreateAiConversation(UUID userId) {
+    UUID id = ensureAiConversation(userId, null);
+    return getConversation(userId, id);
+  }
+
+  @Transactional
+  public void deleteConversationOrLeave(UUID userId, UUID conversationId) {
+    Conversation conversation =
+        conversationRepository
+            .findById(conversationId)
+            .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    requireActiveMember(conversationId, userId);
+    boolean aiConversation = conversation.getType() == ConversationType.AI;
+    if (!aiConversation) {
+      ConversationMember member = requireActiveMember(conversationId, userId);
+      member.setLeftAt(Instant.now());
+      memberRepository.save(member);
+      if (memberRepository.countByIdConversationIdAndLeftAtIsNull(conversationId) > 0) return;
+    }
+    reactionRepository.deleteByConversationId(conversationId);
+    attachmentRepository.deleteByConversationId(conversationId);
+    messageRepository.deleteByConversationId(conversationId);
+    memberRepository.deleteByIdConversationId(conversationId);
+    conversationRepository.delete(conversation);
+  }
+
+  @Transactional
+  public void deleteAiConversation(UUID userId) {
+    conversationRepository
+        .findByDirectKey("ai:" + userId)
+        .ifPresent(conversation -> deleteConversationOrLeave(userId, conversation.getId()));
   }
 
   @Transactional
