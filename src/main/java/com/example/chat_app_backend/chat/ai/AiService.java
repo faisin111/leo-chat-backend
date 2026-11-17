@@ -74,7 +74,9 @@ public class AiService {
       String text = response.text();
       if (text == null || text.isBlank())
         throw new BusinessRuleException("AI returned no response");
-      return messageService.sendAiMessage(conversationId, text.strip());
+      String responseClientMessageId = "ai-response-" + clientMessageId;
+      return messageService.sendAiMessage(
+          conversationId, text.strip(), responseClientMessageId.substring(0, Math.min(64, responseClientMessageId.length())));
     } catch (BusinessRuleException e) {
       throw e;
     } catch (Exception e) {

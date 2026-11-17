@@ -187,9 +187,18 @@ public class MessageService {
 
   @Transactional
   public MessageResponse sendAiMessage(UUID convId, String content) {
+    return sendAiMessage(convId, content, "ai-" + UUID.randomUUID());
+  }
+
+  @Transactional
+  public MessageResponse sendAiMessage(UUID convId, String content, String clientMessageId) {
     conversationRepository
         .lockById(convId)
         .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    Optional<Message> existing =
+        messageRepository.findFirstByConversationIdAndAiGeneratedTrueAndClientMessageId(
+            convId, clientMessageId);
+    if (existing.isPresent()) return mapToResponse(existing.get());
     Instant now = Instant.now();
     conversationRepository.incrementSeqAndTimestamp(convId, now);
     long nextSeq =
@@ -201,7 +210,7 @@ public class MessageService {
     message.setSenderId(null);
     message.setAiGenerated(true);
     message.setSeq(nextSeq);
-    message.setClientMessageId("ai-" + UUID.randomUUID());
+    message.setClientMessageId(clientMessageId);
     message.setType(MessageType.TEXT);
     message.setContent(content);
     message.setCreatedAt(now);

@@ -20,6 +20,14 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
 
   Optional<Conversation> findByDirectKey(String directKey);
 
+  @Modifying
+  @Query(
+      value =
+          "INSERT INTO conversations (id, type, title, direct_key, created_by, last_seq, status, created_at) VALUES (:id, 'AI', 'LeoChat AI', :directKey, :userId, 0, 'ACTIVE', CURRENT_TIMESTAMP) ON CONFLICT (direct_key) DO NOTHING",
+      nativeQuery = true)
+  int insertAiConversationIfAbsent(
+      @Param("id") UUID id, @Param("directKey") String directKey, @Param("userId") UUID userId);
+
   @Query(
       "SELECT c FROM Conversation c JOIN ConversationMember m ON c.id = m.id.conversationId WHERE c.type = com.example.chat_app_backend.chat.conversation.ConversationType.AI AND c.directKey = :directKey AND m.id.userId = :userId AND m.leftAt IS NULL")
   Optional<Conversation> findActiveAiConversation(

@@ -69,7 +69,7 @@ public class ConversationService {
     var existing = conversationRepository.findByDirectKey(directKey);
     if (existing.isPresent()) {
       Conversation conversation = existing.get();
-      assertActiveMember(userId, conversation.getId());
+      ensureAiMember(userId, conversation);
       return conversation.getId();
     }
 
@@ -82,19 +82,28 @@ public class ConversationService {
       return conversation.getId();
     }
 
-    Conversation conversation = new Conversation();
-    conversation.setId(requestedConversationId == null ? UUID.randomUUID() : requestedConversationId);
-    conversation.setType(ConversationType.AI);
-    conversation.setTitle("LeoChat AI");
-    conversation.setDirectKey(directKey);
-    conversation.setCreatedBy(userId);
-    conversationRepository.save(conversation);
-
-    ConversationMember member = new ConversationMember();
-    member.setId(new ConversationMemberId(conversation.getId(), userId));
-    member.setRole("OWNER");
-    memberRepository.save(member);
+    UUID requestedId = requestedConversationId == null ? UUID.randomUUID() : requestedConversationId;
+    conversationRepository.insertAiConversationIfAbsent(requestedId, directKey, userId);
+    Conversation conversation =
+        conversationRepository
+            .findByDirectKey(directKey)
+            .orElseThrow(() -> new NotFoundException("AI conversation could not be created"));
+    ensureAiMember(userId, conversation);
     return conversation.getId();
+  }
+
+  private void ensureAiMember(UUID userId, Conversation conversation) {
+    ConversationMemberId memberId = new ConversationMemberId(conversation.getId(), userId);
+    ConversationMember member = memberRepository.findById(memberId).orElse(null);
+    if (member == null) {
+      member = new ConversationMember();
+      member.setId(memberId);
+      member.setRole("OWNER");
+      memberRepository.save(member);
+    } else if (member.getLeftAt() != null) {
+      member.setLeftAt(null);
+      memberRepository.save(member);
+    }
   }
 
   @Transactional

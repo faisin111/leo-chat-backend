@@ -41,4 +41,7 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
   Optional<Message> findByConversationIdAndSenderIdAndClientMessageId(
       UUID conversationId, UUID senderId, String clientMessageId);
+
+  Optional<Message> findFirstByConversationIdAndAiGeneratedTrueAndClientMessageId(
+      UUID conversationId, String clientMessageId);
 }
