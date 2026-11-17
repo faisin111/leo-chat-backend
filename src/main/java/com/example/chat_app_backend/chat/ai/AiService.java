@@ -9,6 +9,8 @@ import com.example.chat_app_backend.chat.message.MessageService;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
 import com.example.chat_app_backend.exception.BusinessRuleException;
+import com.example.chat_app_backend.exception.AiProviderException;
+import com.example.chat_app_backend.exception.AiTimeoutException;
 import com.google.genai.Client;
 import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.GenerateContentConfig;
@@ -82,15 +84,15 @@ public class AiService {
                   GenerateContentConfig.builder().maxOutputTokens(1024).temperature(0.3f).build());
       String text = response.text();
       if (text == null || text.isBlank())
-        throw new BusinessRuleException("AI returned no response");
+        throw new AiProviderException("AI returned no response");
       String responseClientMessageId = "ai-response-" + clientMessageId;
       return messageService.sendAiMessage(
           conversationId, text.strip(), responseClientMessageId.substring(0, Math.min(64, responseClientMessageId.length())));
     } catch (BusinessRuleException e) {
       throw e;
     } catch (Exception e) {
-      if (hasTimeout(e)) throw new BusinessRuleException("AI provider timed out; retry shortly");
-      throw new BusinessRuleException("AI provider is unavailable");
+      if (hasTimeout(e)) throw new AiTimeoutException("AI provider timed out; retry shortly");
+      throw new AiProviderException("AI provider is unavailable");
     }
   }
 

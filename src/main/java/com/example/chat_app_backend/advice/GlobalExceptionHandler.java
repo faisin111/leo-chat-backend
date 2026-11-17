@@ -1,6 +1,8 @@
 package com.example.chat_app_backend.advice;
 
 import com.example.chat_app_backend.exception.BusinessRuleException;
+import com.example.chat_app_backend.exception.AiProviderException;
+import com.example.chat_app_backend.exception.AiTimeoutException;
 import com.example.chat_app_backend.exception.ConflictException;
 import com.example.chat_app_backend.exception.ForbiddenException;
 import com.example.chat_app_backend.exception.NotFoundException;
@@ -138,6 +140,16 @@ public class GlobalExceptionHandler {
       BusinessRuleException e, HttpServletRequest req) {
     return buildError(
         HttpStatus.UNPROCESSABLE_ENTITY, ERR_BUSINESS_RULE, e.getMessage(), req, List.of());
+  }
+
+  @ExceptionHandler(AiProviderException.class)
+  public ResponseEntity<ApiError> handleAiProvider(AiProviderException e, HttpServletRequest req) {
+    return buildError(HttpStatus.BAD_GATEWAY, "AI_PROVIDER_ERROR", e.getMessage(), req, List.of());
+  }
+
+  @ExceptionHandler(AiTimeoutException.class)
+  public ResponseEntity<ApiError> handleAiTimeout(AiTimeoutException e, HttpServletRequest req) {
+    return buildError(HttpStatus.GATEWAY_TIMEOUT, "AI_PROVIDER_TIMEOUT", e.getMessage(), req, List.of());
   }
 
   @ExceptionHandler(RateLimitException.class)
