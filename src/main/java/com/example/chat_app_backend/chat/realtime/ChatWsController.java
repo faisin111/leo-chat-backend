@@ -137,7 +137,7 @@ public class ChatWsController {
     conversationService.assertActiveMember(target.getId(), request.conversationId());
 
     String action = request.action().trim().toUpperCase(java.util.Locale.ROOT);
-    if (!java.util.Set.of("OFFER", "ANSWER", "ICE_CANDIDATE", "REJECT", "BUSY", "END")
+    if (!java.util.Set.of("INVITE", "OFFER", "ANSWER", "ICE_CANDIDATE", "REJECT", "BUSY", "END")
         .contains(action)) {
       throw new BusinessRuleException("Unsupported call signal action");
     }

@@ -348,6 +348,8 @@ Server broadcasts messages to `/topic/conversations.{conversationId}` and typing
 
 The backend calls Gemini. Configure `GEMINI_ENABLED=true`, `GEMINI_API_KEY`, and optional `GEMINI_MODEL` on the server. Keep the key out of Flutter. REST request: `POST /api/v1/ai/chat` with `{ "conversationId": "...", "prompt": "..." }`. The response is saved and broadcast as a normal message with `aiGenerated: true`. STOMP clients may send the same JSON to `/app/ai.chat` after subscribing to `/topic/conversations.{conversationId}`.
 
+Use `POST /api/v1/ai/actions` for `SEARCH_USERS`, `LIST_CONVERSATIONS`, `GET_BLOCKED_USERS`, `GET_USER`, `SEND_MESSAGE`, and `START_CALL`. Write actions require `confirmed: true` after showing the confirmation response.
+
 ### Flutter STOMP example
 
 ```dart

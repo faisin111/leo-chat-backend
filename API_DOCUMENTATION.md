@@ -103,6 +103,8 @@ Subscribe to `/user/queue/acks` and `/user/queue/errors`. Conversation members c
 
 `POST /api/v1/ai/chat` accepts `{ "conversationId": "...", "prompt": "...", "clientMessageId": "..." }`. The authenticated member's prompt is persisted, sent to Gemini with recent conversation context, and followed by a persisted AI response with `aiGenerated: true`; both are broadcast to the normal conversation topic. STOMP clients can send the same payload to `/app/ai.chat`. Set `GEMINI_ENABLED=true` and `GEMINI_API_KEY` only on the backend; never expose the key in web or mobile code.
 
+`POST /api/v1/ai/actions` accepts `SEARCH_USERS`, `LIST_CONVERSATIONS`, `GET_BLOCKED_USERS`, `GET_USER`, `SEND_MESSAGE`, and `START_CALL`. Read actions execute directly. Message and call actions return `confirmationRequired: true`; resend with `confirmed: true` only after user approval.
+
 For calls, subscribe to `/user/queue/calls` and send WebRTC signaling envelopes to `/app/call.signal` (`OFFER`, `ANSWER`, `ICE_CANDIDATE`, `REJECT`, `BUSY`, or `END`). The sender receives `DELIVERED` or `UNAVAILABLE` on the same queue. The backend validates both conversation members and relays signaling only; audio/video uses a client-side `RTCPeerConnection`.
 
 Send to `/app/chat.send`:
