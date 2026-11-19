@@ -60,11 +60,53 @@ public class ConversationService {
   }
 
   /**
-   * Creates the user's AI conversation when the client starts with a locally generated UUID.
-   * Existing conversations still require normal membership.
+   * Resolves the conversation an AI request runs in.
+   *
+   * <ul>
+   *   <li>{@code null}: the user's default personal AI conversation (created on first use).
+   *   <li>An existing normal chat: the in-chat assistant; the user must be an active member.
+   *   <li>An existing AI conversation: must be owned by the user.
+   *   <li>An unknown UUID: a new AI conversation owned by the user (one per client chat).
+   * </ul>
    */
   @Transactional
   public UUID ensureAiConversation(UUID userId, UUID requestedConversationId) {
+    if (requestedConversationId == null) return ensureDefaultAiConversation(userId);
+
+    var existing = conversationRepository.findById(requestedConversationId);
+    if (existing.isPresent()) {
+      Conversation conversation = existing.get();
+      if (conversation.getType() != ConversationType.AI) {
+        assertActiveMember(userId, conversation.getId());
+        return conversation.getId();
+      }
+      requireAiOwner(userId, conversation);
+      ensureAiMember(userId, conversation);
+      return conversation.getId();
+    }
+
+    conversationRepository.insertAiConversationIfAbsent(
+        requestedConversationId, "ai:" + userId + ":" + requestedConversationId, userId);
+    Conversation conversation =
+        conversationRepository
+            .findById(requestedConversationId)
+            .orElseThrow(() -> new NotFoundException("AI conversation could not be created"));
+    if (conversation.getType() != ConversationType.AI) {
+      assertActiveMember(userId, conversation.getId());
+      return conversation.getId();
+    }
+    requireAiOwner(userId, conversation);
+    ensureAiMember(userId, conversation);
+    return conversation.getId();
+  }
+
+  private static void requireAiOwner(UUID userId, Conversation conversation) {
+    if (!userId.equals(conversation.getCreatedBy())) {
+      throw new ForbiddenException("Not a member of this conversation");
+    }
+  }
+
+  private UUID ensureDefaultAiConversation(UUID userId) {
     String directKey = "ai:" + userId;
     var existing = conversationRepository.findByDirectKey(directKey);
     if (existing.isPresent()) {
@@ -82,7 +124,7 @@ public class ConversationService {
       return conversation.getId();
     }
 
-    UUID requestedId = requestedConversationId == null ? UUID.randomUUID() : requestedConversationId;
+    UUID requestedId = UUID.randomUUID();
     conversationRepository.insertAiConversationIfAbsent(requestedId, directKey, userId);
     Conversation conversation =
         conversationRepository
@@ -138,6 +180,30 @@ public class ConversationService {
     conversationRepository
         .findByDirectKey("ai:" + userId)
         .ifPresent(conversation -> deleteConversationOrLeave(userId, conversation.getId()));
+  }
+
+  /** Permanently deletes one of the user's AI conversations. Normal chats are rejected. */
+  @Transactional
+  public void deleteAiConversation(UUID userId, UUID conversationId) {
+    Conversation conversation =
+        conversationRepository
+            .findById(conversationId)
+            .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    if (conversation.getType() != ConversationType.AI) {
+      throw new BusinessRuleException("Not an AI conversation");
+    }
+    requireAiOwner(userId, conversation);
+    deleteConversationOrLeave(userId, conversationId);
+  }
+
+  /** The user's AI conversations, most recently active first. */
+  @Transactional(readOnly = true)
+  public List<ConversationResponse> listAiConversations(UUID userId) {
+    return conversationRepository
+        .findAiConversationsForUser(userId, PageRequest.of(0, 100))
+        .stream()
+        .map(conversation -> mapToResponse(conversation, userId))
+        .collect(Collectors.toList());
   }
 
   @Transactional

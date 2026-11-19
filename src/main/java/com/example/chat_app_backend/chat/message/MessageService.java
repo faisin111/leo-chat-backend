@@ -219,6 +219,47 @@ public class MessageService {
     return response;
   }
 
+  /** An already stored AI answer for this idempotency key, if any. */
+  @Transactional(readOnly = true)
+  public Optional<MessageResponse> findAiResponse(UUID convId, String clientMessageId) {
+    return messageRepository
+        .findFirstByConversationIdAndAiGeneratedTrueAndClientMessageId(convId, clientMessageId)
+        .map(this::mapToResponse);
+  }
+
+  /**
+   * Soft-deletes an AI answer so it can be regenerated, and returns the user prompt it answered.
+   * The deletion is broadcast like any other message delete.
+   */
+  @Transactional
+  public Message retireAiMessage(UUID convId, UUID messageId) {
+    conversationRepository
+        .lockById(convId)
+        .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    Message aiMessage =
+        messageRepository
+            .lockById(messageId)
+            .orElseThrow(() -> new NotFoundException("Message not found"));
+    if (!convId.equals(aiMessage.getConversationId()) || !aiMessage.isAiGenerated()) {
+      throw new BusinessRuleException("Only an AI answer in this conversation can be regenerated");
+    }
+    if (aiMessage.getDeletedAt() != null) {
+      throw new BusinessRuleException("This AI answer was already replaced");
+    }
+    Message prompt =
+        messageRepository
+            .findHistory(convId, aiMessage.getSeq(), PageRequest.of(0, 50))
+            .stream()
+            .filter(m -> !m.isAiGenerated() && m.getDeletedAt() == null)
+            .filter(m -> m.getContent() != null && !m.getContent().isBlank())
+            .findFirst()
+            .orElseThrow(() -> new BusinessRuleException("No prompt found for this AI answer"));
+    aiMessage.setDeletedAt(Instant.now());
+    messageRepository.save(aiMessage);
+    broadcastAfterCommit(convId, mapToResponse(aiMessage));
+    return prompt;
+  }
+
   @Transactional(readOnly = true)
   public CursorPageResponse<MessageResponse> getHistory(
       UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit) {
@@ -301,7 +342,8 @@ public class MessageService {
             .findByIdConversationIdAndIdUserId(m.getConversationId(), userId)
             .orElseThrow(() -> new ForbiddenException("Not a member"));
 
-    if (!m.getSenderId().equals(userId)
+    // AI messages have no sender; only owners/admins may delete them.
+    if (!userId.equals(m.getSenderId())
         && !"OWNER".equals(mem.getRole())
         && !ConversationMemberRole.ADMIN.name().equals(mem.getRole())) {
       throw new ForbiddenException("Not authorized");

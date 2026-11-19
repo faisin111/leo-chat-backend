@@ -246,9 +246,11 @@ POST /api/v1/ai/chat
 
 The response is a persisted message with `aiGenerated: true` and is broadcast to the conversation topic. For STOMP clients, subscribe to the normal conversation topic and send the same payload to `/app/ai.chat`.
 
+Optional fields: `model` (`leo-ultra` default, `leo-reasoner`, `leo-coder`, `leo-fast`), `reasoning` (boolean, enables Gemini thinking), `webSearch` (boolean, enables Google Search grounding; sources are appended to the answer as markdown links), and `attachments` (up to 5 `{ "name", "text" }` text files, max 100,000 characters each and 200,000 total). Attachment text is sent to the model for that turn only; the stored user message holds the prompt plus the file names. `prompt` (max 4000) may be empty when attachments are sent. Retrying with the same `clientMessageId` returns the stored answer without calling the model again.
+
 Use `POST /api/v1/ai/actions` for assistant actions. Read actions are `SEARCH_USERS`, `LIST_CONVERSATIONS`, `GET_BLOCKED_USERS`, and `GET_USER`. `SEND_MESSAGE` and `START_CALL` require a confirmation response from the user, then a second request with `confirmed: true`.
 
-Use `POST /api/v1/ai/conversation` when opening AI tab. It returns one server-owned AI conversation per user. Do not generate a new AI conversation ID in the client. Use `DELETE /api/v1/ai/conversation` to permanently remove AI chat. Use `DELETE /api/v1/conversations/{id}` to leave a normal chat.
+AI conversations: each AI chat is its own conversation. `POST /api/v1/ai/chat` with a new client-generated UUID creates an AI conversation owned by the caller; an existing AI conversation must belong to the caller. Sending the ID of a normal chat the caller belongs to runs the in-chat assistant there. `GET /api/v1/ai/conversations` lists the caller's AI conversations (most recent first). `DELETE /api/v1/ai/conversations/{id}` permanently deletes one AI conversation with its messages, reactions, attachments, and membership; normal chats are rejected. `POST /api/v1/ai/chat/regenerate` with `{ "conversationId", "messageId" }` (plus optional `model`, `reasoning`, `webSearch`) soft-deletes that AI answer and returns a new one for the same prompt without storing a new user message. The default personal conversation endpoints remain: `POST /api/v1/ai/conversation` gets or creates it and `DELETE /api/v1/ai/conversation` deletes it. Use `DELETE /api/v1/conversations/{id}` to leave a normal chat.
 
 ### WebRTC calling
 
