@@ -11,9 +11,9 @@ import com.example.chat_app_backend.chat.message.MessageRepository;
 import com.example.chat_app_backend.chat.message.MessageService;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
-import com.example.chat_app_backend.exception.AiProviderException;
-import com.example.chat_app_backend.exception.AiTimeoutException;
-import com.example.chat_app_backend.exception.BusinessRuleException;
+import com.example.chat_app_backend.common.exception.AiProviderException;
+import com.example.chat_app_backend.common.exception.AiTimeoutException;
+import com.example.chat_app_backend.common.exception.BusinessRuleException;
 import com.google.genai.Client;
 import com.google.genai.errors.ApiException;
 import com.google.genai.types.Candidate;
@@ -64,7 +64,8 @@ public class AiService {
       " Work through the problem step by step before answering, then state the final answer clearly.";
 
   /** Generation settings resolved from the client's model choice and toggles. */
-  record GenerationOptions(String model, boolean reasoning, boolean webSearch, String instruction) {}
+  record GenerationOptions(
+      String model, boolean reasoning, boolean webSearch, String instruction) {}
 
   private final ObjectProvider<Client> clientProvider;
   private final ConversationService conversationService;
@@ -74,12 +75,14 @@ public class AiService {
   private final String model;
   private final String fastModel;
   private final String reasoningLevel;
+  private final AiRateLimiter rateLimiter;
 
   public AiService(
       ObjectProvider<Client> clientProvider,
       ConversationService conversationService,
       MessageRepository messageRepository,
       MessageService messageService,
+      AiRateLimiter rateLimiter,
       @Value("${app.ai.enabled:false}") boolean enabled,
       @Value("${app.ai.model:gemini-3.8-flash}") String model,
       @Value("${app.ai.model-fast:}") String fastModel,
@@ -88,6 +91,7 @@ public class AiService {
     this.conversationService = conversationService;
     this.messageRepository = messageRepository;
     this.messageService = messageService;
+    this.rateLimiter = rateLimiter;
     this.enabled = enabled;
     this.model = model;
     this.fastModel = fastModel == null || fastModel.isBlank() ? model : fastModel;
@@ -95,9 +99,10 @@ public class AiService {
   }
 
   public MessageResponse chat(UUID userId, AiChatRequest request) {
+    requireConfigured();
+    rateLimiter.acquire(userId);
     UUID conversationId =
         conversationService.ensureAiConversation(userId, request.conversationId());
-    requireConfigured();
 
     String prompt = request.prompt() == null ? "" : request.prompt().strip();
     List<AiAttachmentText> attachments =
@@ -108,7 +113,8 @@ public class AiService {
         request.clientMessageId() == null || request.clientMessageId().isBlank()
             ? "ai-prompt-" + UUID.randomUUID()
             : request.clientMessageId();
-    String responseClientMessageId = truncate("ai-response-" + clientMessageId, 64);
+    // Hash so two long client ids sharing a prefix never map to the same stored answer.
+    String responseClientMessageId = "ai-response-" + sha256Hex(clientMessageId).substring(0, 40);
 
     MessageResponse userMessage =
         messageService.sendMessage(
@@ -134,6 +140,7 @@ public class AiService {
     UUID conversationId = request.conversationId();
     conversationService.assertActiveMember(userId, conversationId);
     requireConfigured();
+    rateLimiter.acquire(userId);
 
     Message prompt = messageService.retireAiMessage(conversationId, request.messageId());
     GenerationOptions options =
@@ -192,10 +199,10 @@ public class AiService {
     boolean search = Boolean.TRUE.equals(webSearch);
     return switch (id) {
       case "leo-fast" -> new GenerationOptions(fastModel, reason, search, BASE_INSTRUCTION);
-      case "leo-coder" ->
-          new GenerationOptions(model, reason, search, BASE_INSTRUCTION + CODER_INSTRUCTION);
-      case "leo-reasoner" ->
-          new GenerationOptions(model, true, search, BASE_INSTRUCTION + REASONER_INSTRUCTION);
+      case "leo-coder" -> new GenerationOptions(
+          model, reason, search, BASE_INSTRUCTION + CODER_INSTRUCTION);
+      case "leo-reasoner" -> new GenerationOptions(
+          model, true, search, BASE_INSTRUCTION + REASONER_INSTRUCTION);
       default -> new GenerationOptions(model, reason, search, BASE_INSTRUCTION);
     };
   }
@@ -321,6 +328,17 @@ public class AiService {
         .filter(message -> message.getContent() != null && !message.getContent().isBlank())
         .map(message -> (message.isAiGenerated() ? "Leo AI" : "User") + ": " + message.getContent())
         .collect(Collectors.joining("\n", "Recent conversation:\n", "\n"));
+  }
+
+  static String sha256Hex(String value) {
+    try {
+      byte[] digest =
+          java.security.MessageDigest.getInstance("SHA-256")
+              .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      return java.util.HexFormat.of().formatHex(digest);
+    } catch (java.security.NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private static String truncate(String value, int max) {

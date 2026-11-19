@@ -13,7 +13,7 @@ import com.example.chat_app_backend.chat.conversation.ConversationMemberReposito
 import com.example.chat_app_backend.chat.conversation.ConversationRepository;
 import com.example.chat_app_backend.chat.conversation.ConversationService;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
-import com.example.chat_app_backend.exception.ForbiddenException;
+import com.example.chat_app_backend.common.exception.ForbiddenException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

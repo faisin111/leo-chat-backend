@@ -8,10 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.security.jwt.JwtUtils;
-import com.example.chat_app_backend.service.EmailService;
+import com.example.chat_app_backend.user.User;
+import com.example.chat_app_backend.user.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
@@ -235,7 +234,7 @@ class AuthApiTest {
   }
 
   @Test
-  void passwordChangeAndResetKeepIssuedJwtValid() throws Exception {
+  void passwordChangeAndResetRevokeRefreshSessions() throws Exception {
     var tokens = login();
     String access = tokens.get("accessToken").asText();
     mvc.perform(
@@ -275,7 +274,8 @@ class AuthApiTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("refreshToken", tokens.get("refreshToken").asText()))))
-        .andExpect(status().isOk());
+        // A password change/reset revokes refresh sessions; issued access JWTs expire on their own.
+        .andExpect(status().isUnauthorized());
   }
 
   @Test

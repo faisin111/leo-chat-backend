@@ -1,0 +1,181 @@
+package com.example.chat_app_backend.admin;
+
+import com.example.chat_app_backend.admin.dto.AdminUserResponse;
+import com.example.chat_app_backend.admin.dto.AuditLogPageResponse;
+import com.example.chat_app_backend.admin.dto.ReportPageResponse;
+import com.example.chat_app_backend.admin.dto.ResolveReportRequest;
+import com.example.chat_app_backend.admin.dto.TransferOwnershipRequest;
+import com.example.chat_app_backend.admin.dto.UpdateConversationStatusRequest;
+import com.example.chat_app_backend.admin.dto.UpdateUserStatusRequest;
+import com.example.chat_app_backend.admin.dto.UserPageResponse;
+import com.example.chat_app_backend.chat.conversation.Conversation;
+import com.example.chat_app_backend.chat.conversation.dto.ConversationPageResponse;
+import com.example.chat_app_backend.common.dto.ApiMessage;
+import com.example.chat_app_backend.common.dto.CursorPageResponse;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
+import com.example.chat_app_backend.security.services.UserDetailsImpl;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/admin")
+@PreAuthorize("hasRole('ADMIN')")
+@Tag(
+    name = "Admin",
+    description = "Highly privileged endpoints strictly reserved for the single System Admin")
+@SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "cookieAuth")
+@StandardErrors
+public class AdminController {
+
+  @Autowired private AdminService adminService;
+
+  @Operation(summary = "Get Stats Overview")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/stats/overview")
+  public ResponseEntity<Map<String, Object>> getStatsOverview() {
+    return adminService.getStatsOverview();
+  }
+
+  @Operation(summary = "List and filter users")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Successful response",
+      content = @Content(schema = @Schema(implementation = UserPageResponse.class)))
+  @GetMapping("/users")
+  public ResponseEntity<CursorPageResponse<AdminUserResponse>> getUsers(
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) String status,
+      @RequestParam(defaultValue = "0") int cursor,
+      @RequestParam(defaultValue = "50") int limit) {
+    return adminService.getUsers(q, status, cursor, limit);
+  }
+
+  @Operation(summary = "Get User by ID")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/users/{id}")
+  public ResponseEntity<Map<String, Object>> getUserById(@PathVariable UUID id) {
+    return adminService.getUserById(id);
+  }
+
+  @Operation(summary = "Update user status (ACTIVE, DISABLED, BANNED)")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @PatchMapping("/users/{id}/status")
+  public ResponseEntity<ApiMessage> updateUserStatus(
+      @PathVariable UUID id, @Valid @RequestBody UpdateUserStatusRequest request) {
+    return adminService.updateUserStatus(id, request);
+  }
+
+  @Operation(summary = "Force logout user")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @PostMapping("/users/{id}/force-logout")
+  public ResponseEntity<ApiMessage> forceLogout(@PathVariable UUID id) {
+    return adminService.forceLogout(id);
+  }
+
+  @Operation(summary = "Soft delete and anonymize user")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @DeleteMapping("/users/{id}")
+  public ResponseEntity<ApiMessage> deleteUser(@PathVariable UUID id) {
+    return adminService.deleteUser(id);
+  }
+
+  @Operation(summary = "Get conversation metadata")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Successful response",
+      content = @Content(schema = @Schema(implementation = ConversationPageResponse.class)))
+  @GetMapping("/conversations")
+  public ResponseEntity<CursorPageResponse<Conversation>> getConversations(
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) String status,
+      @RequestParam(defaultValue = "0") int cursor) {
+    return adminService.getConversations(q, status, cursor);
+  }
+
+  @Operation(summary = "Update conversation status")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @PatchMapping("/conversations/{id}/status")
+  public ResponseEntity<ApiMessage> updateConversationStatus(
+      @PathVariable UUID id, @Valid @RequestBody UpdateConversationStatusRequest request) {
+    return adminService.updateConversationStatus(id, request);
+  }
+
+  @Operation(summary = "Moderation queue")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Successful response",
+      content = @Content(schema = @Schema(implementation = ReportPageResponse.class)))
+  @GetMapping("/reports")
+  public ResponseEntity<CursorPageResponse<Report>> getReports(
+      @RequestParam(required = false) String status, @RequestParam(defaultValue = "0") int cursor) {
+    return adminService.getReports(status, cursor);
+  }
+
+  @Operation(summary = "Report detail")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/reports/{id}")
+  public ResponseEntity<Report> getReportDetail(@PathVariable UUID id) {
+    return adminService.getReportDetail(id);
+  }
+
+  @Operation(summary = "Resolve report")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @PatchMapping("/reports/{id}")
+  public ResponseEntity<ApiMessage> resolveReport(
+      @PathVariable UUID id, @Valid @RequestBody ResolveReportRequest request) {
+    return adminService.resolveReport(id, request);
+  }
+
+  @Operation(summary = "Remove a reported message")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @DeleteMapping("/messages/{id}")
+  public ResponseEntity<ApiMessage> deleteMessage(
+      @PathVariable UUID id, @RequestParam String reason) {
+    return adminService.deleteMessage(id, reason);
+  }
+
+  @Operation(summary = "Browse audit trail")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Successful response",
+      content = @Content(schema = @Schema(implementation = AuditLogPageResponse.class)))
+  @GetMapping("/audit-logs")
+  public ResponseEntity<CursorPageResponse<AuditLog>> getAuditLogs(
+      @RequestParam(required = false) UUID actor,
+      @RequestParam(required = false) String action,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      @RequestParam(defaultValue = "0") int cursor) {
+    return adminService.getAuditLogs(actor, action, from, to, cursor);
+  }
+
+  @Operation(summary = "Transfer Admin Ownership")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @PostMapping("/transfer-ownership")
+  public ResponseEntity<ApiMessage> transferOwnership(
+      @AuthenticationPrincipal UserDetailsImpl user,
+      @Valid @RequestBody TransferOwnershipRequest request) {
+    return adminService.transferOwnership(user.getId(), request);
+  }
+}

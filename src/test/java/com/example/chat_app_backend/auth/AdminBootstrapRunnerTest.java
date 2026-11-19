@@ -9,8 +9,8 @@ import static org.mockito.Mockito.when;
 
 import com.example.chat_app_backend.auth.bootstrap.AdminBootstrapProperties;
 import com.example.chat_app_backend.auth.bootstrap.AdminBootstrapRunner;
-import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.user.User;
+import com.example.chat_app_backend.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;

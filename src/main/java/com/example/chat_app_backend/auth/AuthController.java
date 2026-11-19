@@ -9,9 +9,9 @@ import com.example.chat_app_backend.auth.dto.ResetPasswordRequest;
 import com.example.chat_app_backend.auth.dto.TokenRefreshRequest;
 import com.example.chat_app_backend.auth.dto.TokenResponse;
 import com.example.chat_app_backend.auth.dto.VerifyEmailRequest;
+import com.example.chat_app_backend.common.dto.ApiMessage;
+import com.example.chat_app_backend.common.exception.UnauthorizedException;
 import com.example.chat_app_backend.config.openapi.StandardErrors;
-import com.example.chat_app_backend.exception.UnauthorizedException;
-import com.example.chat_app_backend.payload.response.MessageResponse;
 import com.example.chat_app_backend.security.jwt.AuthCookies;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
@@ -73,7 +73,7 @@ public class AuthController {
   @Operation(
       summary = "Log in",
       description =
-        "Set HttpOnly access/refresh cookies, create a refresh session, and return the JSON token pair for API compatibility.",
+          "Set HttpOnly access/refresh cookies, create a refresh session, and return the JSON token pair for API compatibility.",
       operationId = "auth_login")
   @ApiResponse(
       responseCode = "200",
@@ -120,7 +120,8 @@ public class AuthController {
             "Set-Cookie",
             cookies.access(response.accessToken(), response.expiresIn()).toString(),
             cookies.refresh(response.refreshToken(), response.refreshExpiresIn()).toString(),
-            cookies.clearLegacyAccess().toString())
+            cookies.clearLegacyAccess().toString(),
+            cookies.clearLegacyRefresh().toString())
         .body(response);
   }
 
@@ -128,7 +129,7 @@ public class AuthController {
   @Operation(
       summary = "Refresh tokens",
       description =
-        "Read refresh JWT from the stored HttpOnly session cookie, with JSON fallback for API clients. Refresh rotates the stored token while preserving the session.",
+          "Read refresh JWT from the stored HttpOnly session cookie, with JSON fallback for API clients. Refresh rotates the stored token while preserving the session.",
       operationId = "auth_refresh")
   @ApiResponse(
       responseCode = "200",
@@ -155,7 +156,8 @@ public class AuthController {
   @SecurityRequirements
   @Operation(
       summary = "Clear browser authentication cookies",
-      description = "Revoke the current refresh session and clear browser authentication cookies. Existing access JWTs remain valid until expiry.",
+      description =
+          "Revoke the current refresh session and clear browser authentication cookies. Existing access JWTs remain valid until expiry.",
       operationId = "auth_logout")
   @ApiResponse(
       responseCode = "204",
@@ -169,14 +171,14 @@ public class AuthController {
             "Set-Cookie",
             cookies.clearAccess().toString(),
             cookies.clearRefresh().toString(),
-            cookies.clearLegacyAccess().toString())
+            cookies.clearLegacyAccess().toString(),
+            cookies.clearLegacyRefresh().toString())
         .build();
   }
 
   @Operation(
       summary = "Reject server logout",
-      description =
-        "Revoke every stored refresh session for the authenticated user.",
+      description = "Revoke every stored refresh session for the authenticated user.",
       operationId = "auth_logout_all")
   @ApiResponse(responseCode = "422", description = "Server-side revocation is unsupported")
   @PostMapping("/logout-all")
@@ -192,13 +194,12 @@ public class AuthController {
       operationId = "auth_change_password")
   @ApiResponse(responseCode = "200", description = "Password changed")
   @PostMapping("/change-password")
-  public ResponseEntity<MessageResponse> changePassword(
+  public ResponseEntity<ApiMessage> changePassword(
       @AuthenticationPrincipal UserDetailsImpl user,
       @Valid @RequestBody ChangePasswordRequest request) {
     authService.changePassword(user.getId(), request);
     return ResponseEntity.ok(
-        new MessageResponse(
-            "Password changed. Delete your locally stored tokens and sign in again."));
+        new ApiMessage("Password changed. Delete your locally stored tokens and sign in again."));
   }
 
   @SecurityRequirements
@@ -209,10 +210,10 @@ public class AuthController {
       operationId = "auth_forgot_password")
   @ApiResponse(responseCode = "202", description = "Recovery request accepted")
   @PostMapping("/forgot-password")
-  public ResponseEntity<MessageResponse> forgotPassword(
+  public ResponseEntity<ApiMessage> forgotPassword(
       @Valid @RequestBody ForgotPasswordRequest request) {
     authService.forgotPassword(request);
-    return ResponseEntity.accepted().body(new MessageResponse(RECOVERY_MESSAGE));
+    return ResponseEntity.accepted().body(new ApiMessage(RECOVERY_MESSAGE));
   }
 
   @SecurityRequirements
@@ -223,10 +224,10 @@ public class AuthController {
       operationId = "auth_reset_password")
   @ApiResponse(responseCode = "200", description = "Password reset")
   @PostMapping("/reset-password")
-  public ResponseEntity<MessageResponse> resetPassword(
+  public ResponseEntity<ApiMessage> resetPassword(
       @Valid @RequestBody ResetPasswordRequest request) {
     authService.resetPassword(request);
-    return ResponseEntity.ok(new MessageResponse("Password reset successfully"));
+    return ResponseEntity.ok(new ApiMessage("Password reset successfully"));
   }
 
   @SecurityRequirements
@@ -236,10 +237,9 @@ public class AuthController {
       operationId = "auth_verify_email")
   @ApiResponse(responseCode = "200", description = "Email verified")
   @PostMapping("/verify-email")
-  public ResponseEntity<MessageResponse> verifyEmail(
-      @Valid @RequestBody VerifyEmailRequest request) {
+  public ResponseEntity<ApiMessage> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
     authService.verifyEmail(request);
-    return ResponseEntity.ok(new MessageResponse("Email verified successfully"));
+    return ResponseEntity.ok(new ApiMessage("Email verified successfully"));
   }
 
   @SecurityRequirements
@@ -250,10 +250,10 @@ public class AuthController {
       operationId = "auth_resend_verification")
   @ApiResponse(responseCode = "202", description = "Verification request accepted")
   @PostMapping("/resend-verification")
-  public ResponseEntity<MessageResponse> resendVerification(
+  public ResponseEntity<ApiMessage> resendVerification(
       @Valid @RequestBody ForgotPasswordRequest request) {
     authService.resendVerification(request);
-    return ResponseEntity.accepted().body(new MessageResponse(RECOVERY_MESSAGE));
+    return ResponseEntity.accepted().body(new ApiMessage(RECOVERY_MESSAGE));
   }
 
   private ResponseEntity<TokenResponse> tokens(TokenResponse response) {
@@ -264,7 +264,8 @@ public class AuthController {
             "Set-Cookie",
             cookies.access(response.accessToken(), response.expiresIn()).toString(),
             cookies.refresh(response.refreshToken(), response.refreshExpiresIn()).toString(),
-            cookies.clearLegacyAccess().toString())
+            cookies.clearLegacyAccess().toString(),
+            cookies.clearLegacyRefresh().toString())
         .body(response);
   }
 }

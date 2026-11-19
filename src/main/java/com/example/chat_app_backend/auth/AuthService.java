@@ -8,24 +8,21 @@ import com.example.chat_app_backend.auth.dto.RegisterResponse;
 import com.example.chat_app_backend.auth.dto.ResetPasswordRequest;
 import com.example.chat_app_backend.auth.dto.TokenResponse;
 import com.example.chat_app_backend.auth.dto.VerifyEmailRequest;
+import com.example.chat_app_backend.auth.session.RefreshSession;
+import com.example.chat_app_backend.auth.session.RefreshSessionRepository;
 import com.example.chat_app_backend.common.constants.AppConstants;
 import com.example.chat_app_backend.common.enums.UserStatus;
-import com.example.chat_app_backend.exception.BusinessRuleException;
-import com.example.chat_app_backend.exception.ConflictException;
-import com.example.chat_app_backend.exception.UnauthorizedException;
-import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.model.RefreshSession;
-import com.example.chat_app_backend.repository.RefreshSessionRepository;
-import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.common.exception.ConflictException;
+import com.example.chat_app_backend.common.exception.UnauthorizedException;
 import com.example.chat_app_backend.security.jwt.JwtUtils;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
-import com.example.chat_app_backend.service.EmailService;
-import java.time.Duration;
-import java.time.Instant;
+import com.example.chat_app_backend.user.User;
+import com.example.chat_app_backend.user.UserRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -216,6 +213,7 @@ public class AuthService {
 
   @Transactional
   public void logoutAll(UUID userId) {
+    if (sessionRepository == null) return;
     Instant now = Instant.now();
     sessionRepository
         .findByUserIdAndLogoutAtIsNull(userId)
@@ -260,9 +258,9 @@ public class AuthService {
       session.setAppVersion(limit(appVersion, 40));
       existing = session;
     } else {
-      if (deviceName != null) existing.setDeviceName(deviceName);
-      if (platform != null) existing.setPlatform(platform);
-      if (appVersion != null) existing.setAppVersion(appVersion);
+      if (deviceName != null) existing.setDeviceName(limit(deviceName, 120));
+      if (platform != null) existing.setPlatform(limit(platform, 40));
+      if (appVersion != null) existing.setAppVersion(limit(appVersion, 40));
     }
     if (refreshToken != null) existing.setTokenHash(hash(refreshToken));
     existing.setLastUsedAt(Instant.now());
@@ -285,7 +283,8 @@ public class AuthService {
 
   private String hash(String value) {
     try {
-      byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
       StringBuilder result = new StringBuilder(64);
       for (byte b : digest) result.append(String.format("%02x", b));
       return result.toString();
@@ -306,6 +305,7 @@ public class AuthService {
     user.setPasswordHash(encoder.encode(request.newPassword()));
     user.setMustChangePassword(false);
     userRepository.save(user);
+    logoutAll(user.getId());
   }
 
   @Transactional(readOnly = true)
@@ -341,6 +341,7 @@ public class AuthService {
     user.setPasswordHash(encoder.encode(request.newPassword()));
     user.setMustChangePassword(false);
     userRepository.save(user);
+    logoutAll(user.getId());
   }
 
   @Transactional

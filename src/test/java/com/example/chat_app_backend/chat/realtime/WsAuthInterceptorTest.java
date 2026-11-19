@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.chat_app_backend.chat.conversation.ConversationService;
-import com.example.chat_app_backend.exception.ForbiddenException;
+import com.example.chat_app_backend.common.exception.ForbiddenException;
 import com.example.chat_app_backend.security.jwt.JwtUtils;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.security.services.UserDetailsServiceImpl;

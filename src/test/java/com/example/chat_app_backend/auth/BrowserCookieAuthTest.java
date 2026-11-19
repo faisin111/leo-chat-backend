@@ -6,9 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.repository.UserRepository;
-import com.example.chat_app_backend.service.EmailService;
+import com.example.chat_app_backend.user.User;
+import com.example.chat_app_backend.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import java.util.Map;
@@ -20,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -27,6 +27,9 @@ import org.springframework.test.web.servlet.MvcResult;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+// Other test classes use spring-security-test's csrf(), which replaces the CsrfFilter's token
+// repository in the shared cached context; this class needs the real cookie repository.
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 class BrowserCookieAuthTest {
   @Autowired MockMvc mvc;
   @Autowired UserRepository users;
@@ -91,7 +94,7 @@ class BrowserCookieAuthTest {
             logout.getResponse().getHeaders("Set-Cookie").stream()
                 .filter(h -> h.startsWith("leo_chat_jwt"))
                 .toList())
-        .hasSize(3)
+        .hasSize(4)
         .allMatch(h -> h.contains("Max-Age=0") && h.contains("HttpOnly"));
     assertThat(logout.getResponse().getHeaders("Set-Cookie"))
         .anyMatch(h -> h.contains("Path=/api/v1/auth/refresh"));

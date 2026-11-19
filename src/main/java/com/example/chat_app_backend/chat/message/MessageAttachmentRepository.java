@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface MessageAttachmentRepository extends JpaRepository<MessageAttachment, UUID> {
   List<MessageAttachment> findByMessageId(UUID messageId);
 
-  Optional<MessageAttachment> findByStorageKey(String storageKey);
+  Optional<MessageAttachment> findFirstByStorageKey(String storageKey);
+
+  boolean existsByStorageKey(String storageKey);
 
   @org.springframework.data.jpa.repository.Modifying
   @org.springframework.data.jpa.repository.Query(

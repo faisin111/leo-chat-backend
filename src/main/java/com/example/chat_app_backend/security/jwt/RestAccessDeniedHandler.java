@@ -1,6 +1,6 @@
 package com.example.chat_app_backend.security.jwt;
 
-import com.example.chat_app_backend.advice.ApiError;
+import com.example.chat_app_backend.common.error.ApiError;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.servlet.ServletException;

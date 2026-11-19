@@ -1,6 +1,6 @@
 package com.example.chat_app_backend.security.services;
 
-import com.example.chat_app_backend.model.User;
+import com.example.chat_app_backend.user.User;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -15,6 +15,7 @@ public class UserDetailsImpl implements UserDetails {
   private String email;
   private String password;
   private Collection<? extends GrantedAuthority> authorities;
+  private boolean mustChangePassword;
 
   public UserDetailsImpl(
       UUID id,
@@ -33,8 +34,16 @@ public class UserDetailsImpl implements UserDetails {
     List<GrantedAuthority> authorities =
         Collections.singletonList(new SimpleGrantedAuthority(user.getRole()));
 
-    return new UserDetailsImpl(
-        user.getId(), user.getUsername(), user.getEmail(), user.getPasswordHash(), authorities);
+    UserDetailsImpl details =
+        new UserDetailsImpl(
+            user.getId(), user.getUsername(), user.getEmail(), user.getPasswordHash(), authorities);
+    details.mustChangePassword = user.isMustChangePassword();
+    return details;
+  }
+
+  /** Set for accounts (e.g. the bootstrap admin) that must change their password first. */
+  public boolean isMustChangePassword() {
+    return mustChangePassword;
   }
 
   public UUID getId() {

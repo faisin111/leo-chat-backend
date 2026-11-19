@@ -1,8 +1,8 @@
 package com.example.chat_app_backend.security.services;
 
 import com.example.chat_app_backend.common.enums.UserStatus;
-import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.user.User;
+import com.example.chat_app_backend.user.UserRepository;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

@@ -7,15 +7,16 @@ import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
 import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
-import com.example.chat_app_backend.common.enums.ConversationMemberRole;
 import com.example.chat_app_backend.chat.message.MessageAttachmentRepository;
 import com.example.chat_app_backend.chat.message.MessageReactionRepository;
 import com.example.chat_app_backend.chat.message.MessageRepository;
-import com.example.chat_app_backend.exception.BusinessRuleException;
-import com.example.chat_app_backend.exception.ForbiddenException;
-import com.example.chat_app_backend.exception.NotFoundException;
-import com.example.chat_app_backend.payload.response.CursorPageResponse;
-import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.common.dto.CursorPageResponse;
+import com.example.chat_app_backend.common.enums.ConversationMemberRole;
+import com.example.chat_app_backend.common.enums.UserStatus;
+import com.example.chat_app_backend.common.exception.BusinessRuleException;
+import com.example.chat_app_backend.common.exception.ForbiddenException;
+import com.example.chat_app_backend.common.exception.NotFoundException;
+import com.example.chat_app_backend.user.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -166,7 +167,12 @@ public class ConversationService {
       ConversationMember member = requireActiveMember(conversationId, userId);
       member.setLeftAt(Instant.now());
       memberRepository.save(member);
-      if (memberRepository.countByIdConversationIdAndLeftAtIsNull(conversationId) > 0) return;
+      if (memberRepository.countByIdConversationIdAndLeftAtIsNull(conversationId) > 0) {
+        if (ConversationMemberRole.OWNER.name().equals(member.getRole())) {
+          promoteNextOwner(conversationId);
+        }
+        return;
+      }
     }
     reactionRepository.deleteByConversationId(conversationId);
     attachmentRepository.deleteByConversationId(conversationId);
@@ -239,6 +245,14 @@ public class ConversationService {
 
                   return c;
                 });
+    memberRepository
+        .findById(new ConversationMemberId(conv.getId(), userId1))
+        .filter(member -> member.getLeftAt() != null)
+        .ifPresent(
+            member -> {
+              member.setLeftAt(null);
+              memberRepository.save(member);
+            });
 
     return mapToResponse(conv, userId1);
   }
@@ -390,8 +404,23 @@ public class ConversationService {
     if (!ConversationMemberRole.OWNER.name().equals(mem.getRole())
         && !ConversationMemberRole.ADMIN.name().equals(mem.getRole()))
       throw new ForbiddenException("Only owners and admins can add members");
+    Conversation conversation =
+        conversationRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    if (conversation.getType() != ConversationType.GROUP) {
+      throw new BusinessRuleException("Members can only be added to group conversations");
+    }
+    if (request.memberIds().size() > MAX_MEMBERS_PER_REQUEST) {
+      throw new BusinessRuleException("Too many members in one request");
+    }
     for (UUID mId : request.memberIds()) {
-      if (userRepository.existsById(mId)) {
+      boolean activeUser =
+          userRepository
+              .findById(mId)
+              .map(u -> u.getStatus() == null || UserStatus.ACTIVE.name().equals(u.getStatus()))
+              .orElse(false);
+      if (activeUser) {
         ConversationMemberId memberId = new ConversationMemberId(id, mId);
         ConversationMember existing = memberRepository.findById(memberId).orElse(null);
         if (existing == null) {
@@ -413,10 +442,24 @@ public class ConversationService {
       if (!ConversationMemberRole.OWNER.name().equals(mem.getRole())
           && !ConversationMemberRole.ADMIN.name().equals(mem.getRole()))
         throw new ForbiddenException("Only owners and admins can remove members");
+      ConversationMember target = requireActiveMember(id, targetId);
+      boolean targetPrivileged =
+          ConversationMemberRole.OWNER.name().equals(target.getRole())
+              || ConversationMemberRole.ADMIN.name().equals(target.getRole());
+      if (targetPrivileged && !ConversationMemberRole.OWNER.name().equals(mem.getRole())) {
+        throw new ForbiddenException("Admins cannot remove the owner or other admins");
+      }
+      if (ConversationMemberRole.OWNER.name().equals(target.getRole())) {
+        throw new ForbiddenException("The owner cannot be removed");
+      }
+      target.setLeftAt(Instant.now());
+      memberRepository.save(target);
+      return;
     }
-    ConversationMember target = requireActiveMember(id, targetId);
-    target.setLeftAt(Instant.now());
-    memberRepository.save(target);
+    ConversationMember self = requireActiveMember(id, targetId);
+    self.setLeftAt(Instant.now());
+    memberRepository.save(self);
+    if (ConversationMemberRole.OWNER.name().equals(self.getRole())) promoteNextOwner(id);
   }
 
   @Transactional
@@ -424,9 +467,30 @@ public class ConversationService {
     ConversationMember mem = requireActiveMember(id, userId);
     if (!"OWNER".equals(mem.getRole()))
       throw new ForbiddenException("Only the owner can change roles");
+    if (userId.equals(targetId)) {
+      throw new BusinessRuleException("The owner cannot change their own role");
+    }
     ConversationMember target = requireActiveMember(id, targetId);
     target.setRole(request.role());
     memberRepository.save(target);
+  }
+
+  /** Gives OWNER to the longest-standing active member (admins first) after the owner left. */
+  private void promoteNextOwner(UUID conversationId) {
+    memberRepository.findByIdConversationId(conversationId).stream()
+        .filter(m -> m.getLeftAt() == null)
+        .min(
+            java.util.Comparator.comparing(
+                    (ConversationMember m) ->
+                        ConversationMemberRole.ADMIN.name().equals(m.getRole()) ? 0 : 1)
+                .thenComparing(
+                    ConversationMember::getJoinedAt,
+                    java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+        .ifPresent(
+            next -> {
+              next.setRole(ConversationMemberRole.OWNER.name());
+              memberRepository.save(next);
+            });
   }
 
   @Transactional
@@ -449,6 +513,8 @@ public class ConversationService {
     mem.setArchivedAt(archive ? Instant.now() : null);
     memberRepository.save(mem);
   }
+
+  private static final int MAX_MEMBERS_PER_REQUEST = 100;
 
   private ConversationMember requireActiveMember(UUID conversationId, UUID userId) {
     return memberRepository

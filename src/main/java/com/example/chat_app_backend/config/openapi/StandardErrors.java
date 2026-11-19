@@ -1,6 +1,6 @@
 package com.example.chat_app_backend.config.openapi;
 
-import com.example.chat_app_backend.advice.ApiError;
+import com.example.chat_app_backend.common.error.ApiError;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

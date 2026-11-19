@@ -2,12 +2,12 @@ package com.example.chat_app_backend.chat.message;
 
 import com.example.chat_app_backend.chat.message.dto.AddReactionRequest;
 import com.example.chat_app_backend.chat.message.dto.EditMessageRequest;
+import com.example.chat_app_backend.chat.message.dto.MessagePageResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.ReadMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
+import com.example.chat_app_backend.common.dto.CursorPageResponse;
 import com.example.chat_app_backend.config.openapi.StandardErrors;
-import com.example.chat_app_backend.payload.response.CursorPageResponse;
-import com.example.chat_app_backend.payload.response.MessagePageResponse;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

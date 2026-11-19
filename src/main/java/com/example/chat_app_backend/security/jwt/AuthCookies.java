@@ -9,7 +9,11 @@ import org.springframework.web.util.WebUtils;
 @Component
 public class AuthCookies {
   public static final String ACCESS_PATH = "/";
-  public static final String REFRESH_PATH = "/api/v1/auth/refresh";
+  public static final String REFRESH_PATH = "/api/v1/auth";
+
+  /** Path used by older releases; cleared so a stale cookie never shadows the current one. */
+  public static final String LEGACY_REFRESH_PATH = "/api/v1/auth/refresh";
+
   private final AuthCookieProperties properties;
 
   public AuthCookies(AuthCookieProperties properties) {
@@ -57,5 +61,9 @@ public class AuthCookies {
 
   public ResponseCookie clearRefresh() {
     return refresh("", 0);
+  }
+
+  public ResponseCookie clearLegacyRefresh() {
+    return cookie(properties.refreshName(), "", LEGACY_REFRESH_PATH, 0);
   }
 }

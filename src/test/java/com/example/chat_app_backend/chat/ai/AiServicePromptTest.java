@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.chat_app_backend.chat.ai.dto.AiAttachmentText;
-import com.example.chat_app_backend.exception.BusinessRuleException;
+import com.example.chat_app_backend.common.exception.BusinessRuleException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

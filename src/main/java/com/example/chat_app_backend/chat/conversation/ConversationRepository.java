@@ -2,8 +2,8 @@ package com.example.chat_app_backend.chat.conversation;
 
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,11 +29,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
       @Param("id") UUID id, @Param("directKey") String directKey, @Param("userId") UUID userId);
 
   @Query(
-      "SELECT c FROM Conversation c JOIN ConversationMember m ON c.id = m.id.conversationId WHERE c.type = com.example.chat_app_backend.chat.conversation.ConversationType.AI AND c.directKey = :directKey AND m.id.userId = :userId AND m.leftAt IS NULL")
-  Optional<Conversation> findActiveAiConversation(
-      @Param("directKey") String directKey, @Param("userId") UUID userId);
-
-  @Query(
       "SELECT c FROM Conversation c JOIN ConversationMember m ON c.id = m.id.conversationId WHERE c.title = 'LeoChat AI' AND c.directKey IS NULL AND m.id.userId = :userId AND m.leftAt IS NULL ORDER BY c.createdAt ASC")
   List<Conversation> findLegacyAiConversations(@Param("userId") UUID userId);
 
@@ -55,7 +50,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
       @Param("userId") UUID userId, Pageable pageable);
 
   @Query(
-      "SELECT DISTINCT c FROM Conversation c JOIN ConversationMember currentMember ON c.id = currentMember.id.conversationId JOIN ConversationMember matchedMember ON c.id = matchedMember.id.conversationId JOIN User u ON u.id = matchedMember.id.userId WHERE currentMember.id.userId = :userId AND currentMember.leftAt IS NULL AND matchedMember.leftAt IS NULL AND (:query IS NULL OR lower(coalesce(c.title, '')) LIKE lower(concat('%', :query, '%')) OR lower(coalesce(u.username, '')) LIKE lower(concat('%', :query, '%')) OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :query, '%'))) ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
+      "SELECT c FROM Conversation c JOIN ConversationMember currentMember ON c.id = currentMember.id.conversationId WHERE currentMember.id.userId = :userId AND currentMember.leftAt IS NULL AND (:query IS NULL OR lower(coalesce(c.title, '')) LIKE lower(concat('%', :query, '%')) OR EXISTS (SELECT 1 FROM ConversationMember matchedMember JOIN User u ON u.id = matchedMember.id.userId WHERE matchedMember.id.conversationId = c.id AND matchedMember.leftAt IS NULL AND (lower(coalesce(u.username, '')) LIKE lower(concat('%', :query, '%')) OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :query, '%'))))) ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
   Page<Conversation> searchUserConversations(
       @Param("userId") UUID userId, @Param("query") String query, Pageable pageable);
 

@@ -13,13 +13,14 @@ import com.example.chat_app_backend.chat.message.dto.MessageReplyResponse;
 import com.example.chat_app_backend.chat.message.dto.MessageResponse;
 import com.example.chat_app_backend.chat.message.dto.ReadMessageRequest;
 import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
+import com.example.chat_app_backend.common.dto.CursorPageResponse;
 import com.example.chat_app_backend.common.enums.ConversationMemberRole;
-import com.example.chat_app_backend.exception.BusinessRuleException;
-import com.example.chat_app_backend.exception.ForbiddenException;
-import com.example.chat_app_backend.exception.NotFoundException;
-import com.example.chat_app_backend.model.User;
-import com.example.chat_app_backend.payload.response.CursorPageResponse;
-import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.common.enums.ConversationStatus;
+import com.example.chat_app_backend.common.exception.BusinessRuleException;
+import com.example.chat_app_backend.common.exception.ForbiddenException;
+import com.example.chat_app_backend.common.exception.NotFoundException;
+import com.example.chat_app_backend.user.User;
+import com.example.chat_app_backend.user.UserRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -127,9 +128,14 @@ public class MessageService {
     }
     if (hasAttachment) validateAttachment(senderId, request);
     // Serialize retries and sequence allocation before looking up the idempotency key.
-    conversationRepository
-        .lockById(convId)
-        .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    var conversation =
+        conversationRepository
+            .lockById(convId)
+            .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    if (conversation.getStatus() != null
+        && !ConversationStatus.ACTIVE.name().equals(conversation.getStatus())) {
+      throw new BusinessRuleException("This conversation is not accepting new messages");
+    }
     Optional<Message> existing =
         messageRepository.findByConversationIdAndSenderIdAndClientMessageId(
             convId, senderId, request.clientMessageId());
@@ -141,6 +147,11 @@ public class MessageService {
       return response;
     }
 
+    if (hasAttachment
+        && attachmentRepository != null
+        && attachmentRepository.existsByStorageKey(request.storageKey().strip())) {
+      throw new BusinessRuleException("This upload is already attached to a message");
+    }
     Instant now = Instant.now();
     conversationRepository.incrementSeqAndTimestamp(convId, now);
 
@@ -177,6 +188,8 @@ public class MessageService {
       attachment.setSizeBytes(request.sizeBytes());
       attachmentRepository.save(attachment);
     }
+    // The sender has read their own message; it must not count as unread for them.
+    memberRepository.advanceReadSeq(convId, senderId, nextSeq);
     MessageResponse response = mapToResponse(msg);
     if (ackUsername != null)
       afterCommit(
@@ -247,9 +260,7 @@ public class MessageService {
       throw new BusinessRuleException("This AI answer was already replaced");
     }
     Message prompt =
-        messageRepository
-            .findHistory(convId, aiMessage.getSeq(), PageRequest.of(0, 50))
-            .stream()
+        messageRepository.findHistory(convId, aiMessage.getSeq(), PageRequest.of(0, 50)).stream()
             .filter(m -> !m.isAiGenerated() && m.getDeletedAt() == null)
             .filter(m -> m.getContent() != null && !m.getContent().isBlank())
             .findFirst()
@@ -281,7 +292,7 @@ public class MessageService {
     Pageable page = PageRequest.of(0, limit + 1);
     List<Message> msgs =
         query != null && !query.isBlank()
-            ? messageRepository.searchContent(convId, query.strip(), page)
+            ? messageRepository.searchContent(convId, query.strip(), safeCursor, page)
             : afterSeq == null
                 ? messageRepository.findHistory(convId, safeCursor, page)
                 : messageRepository.findAfter(convId, afterSeq, page);
@@ -319,7 +330,7 @@ public class MessageService {
         messageRepository.lockById(id).orElseThrow(() -> new NotFoundException("Not found"));
     conversationService.assertActiveMember(userId, m.getConversationId());
     if (m.getDeletedAt() != null) throw new BusinessRuleException("Message is deleted");
-    if (!m.getSenderId().equals(userId)) throw new ForbiddenException("Not sender");
+    if (!userId.equals(m.getSenderId())) throw new ForbiddenException("Not sender");
 
     if (m.getCreatedAt().plus(Duration.ofMinutes(15)).isBefore(Instant.now())) {
       throw new BusinessRuleException("Edit window expired");
@@ -429,7 +440,7 @@ public class MessageService {
         m.getEditedAt(),
         m.getDeletedAt(),
         m.getDeletedAt() != null,
-        mapAttachments(m.getId()));
+        m.getDeletedAt() == null ? mapAttachments(m.getId()) : List.of());
   }
 
   private List<MessageAttachmentResponse> mapAttachments(UUID messageId) {

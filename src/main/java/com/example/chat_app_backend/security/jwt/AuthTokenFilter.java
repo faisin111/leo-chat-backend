@@ -17,6 +17,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 public class AuthTokenFilter extends OncePerRequestFilter {
   private static final String BEARER_PREFIX = "Bearer ";
+  // Reachable while a password change is pending; everything else returns 403.
+  private static final java.util.Set<String> PASSWORD_CHANGE_ALLOWED =
+      java.util.Set.of(
+          "/api/v1/auth/change-password",
+          "/api/v1/auth/logout",
+          "/api/v1/auth/logout-all",
+          "/api/v1/auth/refresh",
+          "/api/v1/auth/csrf",
+          "/api/v1/users/me");
   private final AuthCookies cookies;
   private final JwtUtils jwtUtils;
   private final UserDetailsServiceImpl users;
@@ -46,6 +55,19 @@ public class AuthTokenFilter extends OncePerRequestFilter {
               new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
           authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
           SecurityContextHolder.getContext().setAuthentication(authentication);
+          if (user instanceof com.example.chat_app_backend.security.services.UserDetailsImpl details
+              && details.isMustChangePassword()
+              && request.getRequestURI().startsWith("/api/")
+              && !PASSWORD_CHANGE_ALLOWED.contains(request.getRequestURI())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json");
+            response
+                .getWriter()
+                .write(
+                    "{\"status\":403,\"code\":\"PASSWORD_CHANGE_REQUIRED\","
+                        + "\"message\":\"Change your password to continue\"}");
+            return;
+          }
         } catch (AuthenticationException | JwtException | IllegalArgumentException exception) {
           // Reject invalid credentials without logging bearer tokens or user details.
           SecurityContextHolder.clearContext();
@@ -61,17 +83,5 @@ public class AuthTokenFilter extends OncePerRequestFilter {
       return null;
     }
     return header.substring(BEARER_PREFIX.length()).trim();
-  }
-
-  private void authenticateCookie(HttpServletRequest request, String token) {
-    try {
-      UserDetails user = users.loadUserByUsername(jwtUtils.getUserNameFromJwtToken(token));
-      UsernamePasswordAuthenticationToken authentication =
-          new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-      authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-      SecurityContextHolder.getContext().setAuthentication(authentication);
-    } catch (AuthenticationException | JwtException | IllegalArgumentException exception) {
-      SecurityContextHolder.clearContext();
-    }
   }
 }

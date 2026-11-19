@@ -32,4 +32,4 @@ public record RegisterRequest(
             message =
                 "Password must contain at least one digit, one lowercase, one uppercase, and one special character (@#$%^&+=!)")
         String password,
-    String displayName) {}
+    @Size(max = 60, message = "Display name must be at most 60 characters") String displayName) {}

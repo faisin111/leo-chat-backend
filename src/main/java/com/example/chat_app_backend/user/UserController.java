@@ -1,0 +1,110 @@
+package com.example.chat_app_backend.user;
+
+import com.example.chat_app_backend.common.dto.ApiMessage;
+import com.example.chat_app_backend.config.openapi.StandardErrors;
+import com.example.chat_app_backend.security.services.UserDetailsImpl;
+import com.example.chat_app_backend.user.dto.UpdateProfileRequest;
+import com.example.chat_app_backend.user.dto.UserProfileResponse;
+import com.example.chat_app_backend.user.dto.UserSearchResponse;
+import com.example.chat_app_backend.user.dto.UserSessionResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/users")
+@Tag(name = "Users", description = "Endpoints for retrieving user profiles and directories")
+@SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "cookieAuth")
+@StandardErrors
+public class UserController {
+
+  @Autowired private UserService userService;
+
+  @Operation(
+      summary = "Get Current User",
+      description = "Retrieves the profile of the currently authenticated user.")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/me")
+  public ResponseEntity<UserProfileResponse> getCurrentUser() {
+    return userService.getCurrentUser();
+  }
+
+  @Operation(
+      summary = "Get User by ID",
+      description = "Retrieves the public profile of a specific user by their UUID.")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/{id}")
+  public ResponseEntity<UserProfileResponse> getUserById(
+      @AuthenticationPrincipal UserDetailsImpl viewer, @PathVariable UUID id) {
+    return userService.getUserById(id, viewer.getId());
+  }
+
+  @Operation(
+      summary = "Update Profile",
+      description = "Allows the current user to update their phone number, bio, age, and region.")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @PatchMapping("/me/profile")
+  public ResponseEntity<ApiMessage> updateProfile(
+      @Valid @RequestBody UpdateProfileRequest request) {
+    return userService.updateProfile(request);
+  }
+
+  @Operation(
+      summary = "Deactivate Account",
+      description = "Deactivate own account (rejected for the admin)")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @DeleteMapping("/me")
+  public ResponseEntity<ApiMessage> deactivateAccount() {
+    return userService.deactivateCurrentUser();
+  }
+
+  @Operation(summary = "Search users")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/search")
+  public ResponseEntity<List<UserSearchResponse>> searchUsers(
+      @RequestParam String q,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return userService.searchUsers(q, page, size);
+  }
+
+  @Operation(summary = "Get user presence")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/presence")
+  public ResponseEntity<List<Map<String, Object>>> getPresence(@RequestParam List<UUID> ids) {
+    return userService.getPresence(ids);
+  }
+
+  @Operation(summary = "Get active sessions")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @GetMapping("/me/sessions")
+  public ResponseEntity<List<UserSessionResponse>> getSessions(
+      @AuthenticationPrincipal UserDetailsImpl userDetails) {
+    return userService.getSessions(userDetails.getId());
+  }
+
+  @Operation(summary = "Logout specific session")
+  @ApiResponse(responseCode = "200", description = "Successful response")
+  @DeleteMapping("/me/sessions/{sessionId}")
+  public ResponseEntity<ApiMessage> logoutSession(
+      @AuthenticationPrincipal UserDetailsImpl userDetails, @PathVariable UUID sessionId) {
+    return userService.logoutSession(userDetails.getId(), sessionId);
+  }
+}
