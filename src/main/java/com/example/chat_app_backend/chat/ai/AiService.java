@@ -47,7 +47,9 @@ public class AiService {
   private static final Logger log = LoggerFactory.getLogger(AiService.class);
   static final int MAX_STORED_PROMPT_CHARS = 4000;
   private static final int MAX_SOURCES = 5;
-  private static final int MAX_OUTPUT_TOKENS = 1024;
+  // Gemini counts thinking tokens toward this limit; too low a cap cuts answers off.
+  private static final int MAX_OUTPUT_TOKENS = 4096;
+  private static final int MAX_REASONING_OUTPUT_TOKENS = 8192;
 
   private static final String BASE_INSTRUCTION =
       "You are Leo AI, the helpful assistant inside a private chat application. "
@@ -71,7 +73,7 @@ public class AiService {
   private final boolean enabled;
   private final String model;
   private final String fastModel;
-  private final int reasoningBudget;
+  private final String reasoningLevel;
 
   public AiService(
       ObjectProvider<Client> clientProvider,
@@ -81,7 +83,7 @@ public class AiService {
       @Value("${app.ai.enabled:false}") boolean enabled,
       @Value("${app.ai.model:gemini-3.8-flash}") String model,
       @Value("${app.ai.model-fast:}") String fastModel,
-      @Value("${app.ai.reasoning-budget:2048}") int reasoningBudget) {
+      @Value("${app.ai.reasoning-level:high}") String reasoningLevel) {
     this.clientProvider = clientProvider;
     this.conversationService = conversationService;
     this.messageRepository = messageRepository;
@@ -89,7 +91,7 @@ public class AiService {
     this.enabled = enabled;
     this.model = model;
     this.fastModel = fastModel == null || fastModel.isBlank() ? model : fastModel;
-    this.reasoningBudget = reasoningBudget;
+    this.reasoningLevel = reasoningLevel == null ? "" : reasoningLevel.strip().toLowerCase();
   }
 
   public MessageResponse chat(UUID userId, AiChatRequest request) {
@@ -217,14 +219,14 @@ public class AiService {
   }
 
   private String generate(GenerationOptions options, String fullPrompt) {
-    boolean thinking = options.reasoning() && reasoningBudget > 0;
-    // Thinking tokens count toward the output limit, so leave room for the answer.
+    // Gemini 3 models take a thinking level (low|medium|high), not a token budget.
+    boolean thinking = options.reasoning() && !reasoningLevel.isEmpty();
     GenerateContentConfig.Builder config =
         GenerateContentConfig.builder()
-            .maxOutputTokens(thinking ? MAX_OUTPUT_TOKENS + reasoningBudget : MAX_OUTPUT_TOKENS)
+            .maxOutputTokens(thinking ? MAX_REASONING_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS)
             .temperature(0.3f);
     if (thinking) {
-      config.thinkingConfig(ThinkingConfig.builder().thinkingBudget(reasoningBudget).build());
+      config.thinkingConfig(ThinkingConfig.builder().thinkingLevel(reasoningLevel).build());
     }
     if (options.webSearch()) {
       config.tools(Tool.builder().googleSearch(GoogleSearch.builder().build()).build());
