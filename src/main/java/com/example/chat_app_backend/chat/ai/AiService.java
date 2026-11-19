@@ -15,6 +15,7 @@ import com.example.chat_app_backend.exception.AiProviderException;
 import com.example.chat_app_backend.exception.AiTimeoutException;
 import com.example.chat_app_backend.exception.BusinessRuleException;
 import com.google.genai.Client;
+import com.google.genai.errors.ApiException;
 import com.google.genai.types.Candidate;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
@@ -33,6 +34,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -41,6 +44,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiService {
 
+  private static final Logger log = LoggerFactory.getLogger(AiService.class);
   static final int MAX_STORED_PROMPT_CHARS = 4000;
   private static final int MAX_SOURCES = 5;
   private static final int MAX_OUTPUT_TOKENS = 1024;
@@ -232,12 +236,32 @@ public class AiService {
               .models
               .generateContent(options.model(), fullPrompt, config.build());
       String text = response.text();
-      if (text == null || text.isBlank()) throw new AiProviderException("AI returned no response");
+      if (text == null || text.isBlank()) {
+        log.warn("Gemini returned an empty response (model={})", options.model());
+        throw new AiProviderException("AI returned no response");
+      }
       return text.strip() + formatSources(extractSources(response));
     } catch (BusinessRuleException | AiProviderException e) {
       throw e;
-    } catch (Exception e) {
+    } catch (ApiException e) {
+      // Gemini rejected the call: code/status say why (e.g. 404 unknown model, 403 bad key,
+      // 429 quota). The prompt is never logged.
+      log.error(
+          "Gemini API error (model={}, reasoning={}, webSearch={}): code={} status={} message={}",
+          options.model(),
+          options.reasoning(),
+          options.webSearch(),
+          e.code(),
+          e.status(),
+          e.message());
       if (hasTimeout(e)) throw new AiTimeoutException("AI provider timed out; retry shortly");
+      throw new AiProviderException("AI provider is unavailable");
+    } catch (Exception e) {
+      if (hasTimeout(e)) {
+        log.warn("Gemini call timed out (model={})", options.model());
+        throw new AiTimeoutException("AI provider timed out; retry shortly");
+      }
+      log.error("Gemini call failed (model={})", options.model(), e);
       throw new AiProviderException("AI provider is unavailable");
     }
   }
