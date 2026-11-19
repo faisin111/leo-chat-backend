@@ -15,6 +15,7 @@ public class UserProfileResponse {
   private Integer age;
   private String region;
   private boolean isEmailVerified;
+  private boolean mustChangePassword;
 
   public UserProfileResponse(
       UUID id,
@@ -39,6 +40,11 @@ public class UserProfileResponse {
     this.age = age;
     this.region = region;
     this.isEmailVerified = isEmailVerified;
+  }
+
+  public UserProfileResponse withMustChangePassword(boolean mustChangePassword) {
+    this.mustChangePassword = mustChangePassword;
+    return this;
   }
 
   public UUID getId() {
@@ -83,5 +89,10 @@ public class UserProfileResponse {
 
   public boolean isEmailVerified() {
     return isEmailVerified;
+  }
+
+  /** Only set on the signed-in user's own profile: a password change is required first. */
+  public boolean isMustChangePassword() {
+    return mustChangePassword;
   }
 }

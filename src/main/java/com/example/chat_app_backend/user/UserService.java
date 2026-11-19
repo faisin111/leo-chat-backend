@@ -79,7 +79,9 @@ public class UserService {
   public ResponseEntity<UserProfileResponse> getCurrentUser() {
     UserDetailsImpl userDetails =
         (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-    return getUserById(userDetails.getId());
+    UserProfileResponse me = getUserById(userDetails.getId()).getBody();
+    return ResponseEntity.ok(
+        me == null ? null : me.withMustChangePassword(userDetails.isMustChangePassword()));
   }
 
   @Transactional
