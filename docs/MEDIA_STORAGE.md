@@ -24,6 +24,13 @@ Create a private `images` bucket first. Use Supabase Storage S3 Access Keys. The
 2. `PUT` the bytes to the returned `uploadUrl` with the returned `Content-Type`.
 3. `POST /api/v1/media/confirm` with `{ "storageKey": "users/<user-id>/<key>.png" }`.
 
+Profile images store the permanent `storageKey`, not the short-lived signed download URL. Update a
+profile with `profilePictureStorageKey` after confirming an image; user responses provide a fresh
+signed `profilePictureUrl` and replacing an image deletes the previous profile object.
+
+To remove the current profile image, call `DELETE /api/v1/users/me/profile-picture`. To delete an
+unused upload, call `DELETE /api/v1/media?storageKey=...`; objects attached to messages are protected.
+
 Supported types: JPEG, PNG, WebP, GIF, AVIF. Maximum size: 10 MiB.
 
 ## Verification

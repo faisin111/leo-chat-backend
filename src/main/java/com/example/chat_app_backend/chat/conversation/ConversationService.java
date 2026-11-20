@@ -16,6 +16,7 @@ import com.example.chat_app_backend.common.enums.UserStatus;
 import com.example.chat_app_backend.common.exception.BusinessRuleException;
 import com.example.chat_app_backend.common.exception.ForbiddenException;
 import com.example.chat_app_backend.common.exception.NotFoundException;
+import com.example.chat_app_backend.media.MediaService;
 import com.example.chat_app_backend.user.UserRepository;
 import java.time.Instant;
 import java.util.List;
@@ -36,6 +37,7 @@ public class ConversationService {
   private final MessageRepository messageRepository;
   private final MessageAttachmentRepository attachmentRepository;
   private final MessageReactionRepository reactionRepository;
+  private final MediaService mediaService;
 
   public ConversationService(
       ConversationRepository conversationRepository,
@@ -43,13 +45,15 @@ public class ConversationService {
       UserRepository userRepository,
       MessageRepository messageRepository,
       MessageAttachmentRepository attachmentRepository,
-      MessageReactionRepository reactionRepository) {
+      MessageReactionRepository reactionRepository,
+      MediaService mediaService) {
     this.conversationRepository = conversationRepository;
     this.memberRepository = memberRepository;
     this.userRepository = userRepository;
     this.messageRepository = messageRepository;
     this.attachmentRepository = attachmentRepository;
     this.reactionRepository = reactionRepository;
+    this.mediaService = mediaService;
   }
 
   @Transactional(readOnly = true)
@@ -301,7 +305,11 @@ public class ConversationService {
           targetUsername = targetUser.getUsername();
           targetDisplayName = targetUser.getDisplayName();
           if (targetUser.getProfile() != null) {
-            targetAvatarUrl = targetUser.getProfile().getProfilePictureUrl();
+            targetAvatarUrl =
+                targetUser.getProfile().getProfilePictureStorageKey() != null
+                    ? mediaService.profilePictureUrl(
+                        targetUser.getProfile().getProfilePictureStorageKey())
+                    : targetUser.getProfile().getProfilePictureUrl();
           }
         }
       }

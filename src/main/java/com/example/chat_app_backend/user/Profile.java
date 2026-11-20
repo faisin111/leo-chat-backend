@@ -26,6 +26,9 @@ public class Profile {
   @Column(name = "profile_picture_url", columnDefinition = "TEXT")
   private String profilePictureUrl;
 
+  @Column(name = "profile_picture_storage_key", columnDefinition = "TEXT")
+  private String profilePictureStorageKey;
+
   @Column(name = "phone_number")
   private String phoneNumber;
 
@@ -64,6 +67,14 @@ public class Profile {
 
   public void setProfilePictureUrl(String profilePictureUrl) {
     this.profilePictureUrl = profilePictureUrl;
+  }
+
+  public String getProfilePictureStorageKey() {
+    return profilePictureStorageKey;
+  }
+
+  public void setProfilePictureStorageKey(String profilePictureStorageKey) {
+    this.profilePictureStorageKey = profilePictureStorageKey;
   }
 
   public String getPhoneNumber() {

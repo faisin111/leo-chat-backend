@@ -1,9 +1,11 @@
 package com.example.chat_app_backend.media;
 
+import com.example.chat_app_backend.chat.message.MessageAttachmentRepository;
 import com.example.chat_app_backend.common.exception.BusinessRuleException;
 import com.example.chat_app_backend.config.storage.SupabaseStorageProperties;
 import com.example.chat_app_backend.media.dto.MediaConfirmRequest;
 import com.example.chat_app_backend.media.dto.MediaPresignRequest;
+import com.example.chat_app_backend.user.ProfileRepository;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -58,14 +61,20 @@ public class MediaService {
   private final ObjectProvider<S3Presigner> presigner;
   private final ObjectProvider<S3Client> client;
   private final SupabaseStorageProperties properties;
+  private final MessageAttachmentRepository attachmentRepository;
+  private final ProfileRepository profileRepository;
 
   public MediaService(
       ObjectProvider<S3Presigner> presigner,
       ObjectProvider<S3Client> client,
-      SupabaseStorageProperties properties) {
+      SupabaseStorageProperties properties,
+      MessageAttachmentRepository attachmentRepository,
+      ProfileRepository profileRepository) {
     this.presigner = presigner;
     this.client = client;
     this.properties = properties;
+    this.attachmentRepository = attachmentRepository;
+    this.profileRepository = profileRepository;
   }
 
   public Map<String, Object> presign(UUID userId, MediaPresignRequest request) {
@@ -177,6 +186,66 @@ public class MediaService {
           "storageKey", storageKey,
           "url", signed.url().toString(),
           "expiresIn", properties.downloadExpirySeconds());
+    } catch (SdkException e) {
+      throw new BusinessRuleException("Storage provider is unavailable");
+    }
+  }
+
+  public String assertOwnedImage(UUID userId, String storageKey) {
+    ensureEnabled();
+    String ownedKey = requireOwnedKey(userId, storageKey);
+    try {
+      var metadata =
+          client
+              .getObject()
+              .headObject(
+                  HeadObjectRequest.builder().bucket(properties.bucket()).key(ownedKey).build());
+      String contentType = normalizeMimeType(metadata.contentType());
+      if (!contentType.startsWith("image/")
+          || metadata.contentLength() == null
+          || metadata.contentLength() < 1
+          || metadata.contentLength() > properties.maxImageBytes()) {
+        throw new BusinessRuleException("Profile picture is invalid");
+      }
+      return ownedKey;
+    } catch (NoSuchKeyException e) {
+      throw new BusinessRuleException("Profile picture upload is not complete");
+    } catch (S3Exception e) {
+      if (e.statusCode() == 404) {
+        throw new BusinessRuleException("Profile picture upload is not complete");
+      }
+      throw new BusinessRuleException("Storage provider rejected the request");
+    } catch (SdkException e) {
+      throw new BusinessRuleException("Storage provider is unavailable");
+    }
+  }
+
+  public String profilePictureUrl(String storageKey) {
+    if (storageKey == null || storageKey.isBlank()) return null;
+    return String.valueOf(downloadUrl(storageKey).get("url"));
+  }
+
+  public void deleteOwnedObject(UUID userId, String storageKey) {
+    ensureEnabled();
+    String ownedKey = requireOwnedKey(userId, storageKey);
+    if (attachmentRepository.existsByStorageKey(ownedKey)
+        || profileRepository.existsByUserIdAndProfilePictureStorageKey(userId, ownedKey)) {
+      throw new BusinessRuleException("Media is still in use");
+    }
+    deleteObject(ownedKey);
+  }
+
+  public void deleteProfilePicture(UUID userId, String storageKey) {
+    ensureEnabled();
+    deleteObject(requireOwnedKey(userId, storageKey));
+  }
+
+  private void deleteObject(String storageKey) {
+    try {
+      client
+          .getObject()
+          .deleteObject(
+              DeleteObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build());
     } catch (SdkException e) {
       throw new BusinessRuleException("Storage provider is unavailable");
     }

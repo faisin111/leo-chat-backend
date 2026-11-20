@@ -14,6 +14,7 @@ import com.example.chat_app_backend.chat.message.MessageReactionRepository;
 import com.example.chat_app_backend.chat.message.MessageRepository;
 import com.example.chat_app_backend.common.exception.BusinessRuleException;
 import com.example.chat_app_backend.common.exception.ForbiddenException;
+import com.example.chat_app_backend.media.MediaService;
 import com.example.chat_app_backend.user.UserRepository;
 import java.time.Instant;
 import java.util.Optional;
@@ -30,7 +31,8 @@ class AiConversationServiceTest {
           mock(UserRepository.class),
           mock(MessageRepository.class),
           mock(MessageAttachmentRepository.class),
-          mock(MessageReactionRepository.class));
+          mock(MessageReactionRepository.class),
+          mock(MediaService.class));
   UUID user = UUID.randomUUID();
 
   private Conversation conversation(UUID id, ConversationType type, UUID owner) {

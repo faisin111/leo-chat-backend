@@ -580,6 +580,8 @@ Base path: `/api/v1`. JSON only (except uploads to object storage). Auth header:
 |---|---|---|---|---|
 | POST | `/media/presign` | User | M | Pre-signed upload URL and `storageKey` (mime and size validated) |
 | POST | `/media/confirm` | User | M | Confirm upload, returns attachment ID for a message |
+| DELETE | `/media?storageKey=` | User | M | Delete an owned, unused upload |
+| DELETE | `/users/me/profile-picture` | User | M | Remove the profile image and its storage object |
 
 ### 8.6 Admin (`tag: Admin`), single admin only
 All routes: `Access = Admin`. All mutating routes write an `audit_logs` row.

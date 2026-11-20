@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 public record UpdateProfileRequest(
+    @Size(max = 180) String profilePictureStorageKey,
     @Size(max = 2000) String profilePictureUrl,
     @Size(max = 32) String phoneNumber,
     @Size(max = 2000) String bio,

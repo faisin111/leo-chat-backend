@@ -195,8 +195,10 @@ All media routes require authentication. Storage must be enabled with a private 
 | POST | `/media/presign` | 200 | `{ "mimeType": "image/png", "sizeInBytes": 12345 }` |
 | POST | `/media/confirm` | 200 | `{ "storageKey": "users/{userId}/{id}.png" }` |
 | GET | `/media/download?storageKey=...` | 200 | `{ "storageKey": "...", "url": "...", "expiresIn": 900 }` |
+| DELETE | `/media?storageKey=...` | 200 | Delete an owned upload that is not attached to a message |
+| DELETE | `/users/me/profile-picture` | 200 | Remove the current profile image |
 
-Supported MIME types: images (`image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/avif`) and documents/files (`application/pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `text/plain`, `text/csv`, `application/zip`, `application/json`, `audio/mpeg`, `video/mp4`, `application/octet-stream`). The configured server limit is 10 MiB. Presign returns `uploadUrl`, `method` (`PUT`), `contentType`, `sizeInBytes`, `bucket`, `storageKey`, and `expiresIn`. Upload bytes directly to `uploadUrl`, preserving the returned content type and size. Confirm returns a private short-lived download `url`.
+Supported MIME types: images (`image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/avif`) and documents/files (`application/pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `text/plain`, `text/csv`, `application/zip`, `application/json`, `audio/mpeg`, `video/mp4`, `application/octet-stream`). The configured server limit is 10 MiB. Presign returns `uploadUrl`, `method` (`PUT`), `contentType`, `sizeInBytes`, `bucket`, `storageKey`, and `expiresIn`. Upload bytes directly to `uploadUrl`, preserving the returned content type and size. Confirm returns a private short-lived download `url`. Profile updates use `profilePictureStorageKey`, while user responses provide a fresh signed `profilePictureUrl`.
 For a message attachment, send the confirmed `storageKey`, `fileName`, `mimeType`, and `sizeBytes` in the message request. Recipients fetch a fresh playback URL through `/api/v1/media/download?storageKey=...`; conversation membership is checked.
 
 ## Administration

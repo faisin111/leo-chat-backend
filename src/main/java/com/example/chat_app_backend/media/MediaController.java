@@ -4,6 +4,7 @@ import com.example.chat_app_backend.chat.conversation.ConversationService;
 import com.example.chat_app_backend.chat.message.MessageAttachment;
 import com.example.chat_app_backend.chat.message.MessageAttachmentRepository;
 import com.example.chat_app_backend.chat.message.MessageRepository;
+import com.example.chat_app_backend.common.dto.ApiMessage;
 import com.example.chat_app_backend.common.exception.NotFoundException;
 import com.example.chat_app_backend.config.openapi.StandardErrors;
 import com.example.chat_app_backend.media.dto.MediaConfirmRequest;
@@ -18,6 +19,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -54,6 +56,18 @@ public class MediaController {
       @AuthenticationPrincipal UserDetailsImpl userDetails,
       @Valid @RequestBody MediaConfirmRequest request) {
     return ResponseEntity.ok(mediaService.confirm(userDetails.getId(), request));
+  }
+
+  @Operation(
+      summary = "Delete unused media",
+      description =
+          "Delete an authenticated user's uploaded object when it is not attached to a message.")
+  @ApiResponse(responseCode = "200", description = "Media deleted")
+  @DeleteMapping
+  public ResponseEntity<ApiMessage> delete(
+      @AuthenticationPrincipal UserDetailsImpl userDetails, @RequestParam String storageKey) {
+    mediaService.deleteOwnedObject(userDetails.getId(), storageKey);
+    return ResponseEntity.ok(new ApiMessage("Media deleted successfully"));
   }
 
   @Operation(summary = "Get an authorized signed download URL for a message attachment")

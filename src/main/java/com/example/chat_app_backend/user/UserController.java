@@ -67,6 +67,15 @@ public class UserController {
   }
 
   @Operation(
+      summary = "Delete profile picture",
+      description = "Remove the authenticated user's profile picture from storage and the profile.")
+  @ApiResponse(responseCode = "200", description = "Profile picture removed")
+  @DeleteMapping("/me/profile-picture")
+  public ResponseEntity<ApiMessage> deleteProfilePicture() {
+    return userService.deleteCurrentProfilePicture();
+  }
+
+  @Operation(
       summary = "Deactivate Account",
       description = "Deactivate own account (rejected for the admin)")
   @ApiResponse(responseCode = "200", description = "Successful response")
