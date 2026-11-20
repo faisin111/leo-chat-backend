@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/ai")
-@Tag(name = "AI", description = "Gemini-powered chat assistant")
+@Tag(name = "AI", description = "Groq-powered chat assistant")
 @SecurityRequirement(name = "bearerAuth")
 @SecurityRequirement(name = "cookieAuth")
 @StandardErrors

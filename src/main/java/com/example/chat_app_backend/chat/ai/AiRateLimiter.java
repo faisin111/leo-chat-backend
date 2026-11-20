@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Per-user sliding-window limit on AI generations, so one account cannot run up Gemini costs.
+ * Per-user sliding-window limit on AI generations, so one account cannot run up provider costs.
  * In-memory: each backend instance counts separately.
  */
 @Component

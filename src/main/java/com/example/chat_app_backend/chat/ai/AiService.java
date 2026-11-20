@@ -14,29 +14,22 @@ import com.example.chat_app_backend.chat.message.dto.SendMessageRequest;
 import com.example.chat_app_backend.common.exception.AiProviderException;
 import com.example.chat_app_backend.common.exception.AiTimeoutException;
 import com.example.chat_app_backend.common.exception.BusinessRuleException;
-import com.google.genai.Client;
-import com.google.genai.errors.ApiException;
-import com.google.genai.types.Candidate;
-import com.google.genai.types.GenerateContentConfig;
-import com.google.genai.types.GenerateContentResponse;
-import com.google.genai.types.GoogleSearch;
-import com.google.genai.types.GroundingChunk;
-import com.google.genai.types.GroundingChunkWeb;
-import com.google.genai.types.GroundingMetadata;
-import com.google.genai.types.ThinkingConfig;
-import com.google.genai.types.Tool;
-import java.net.SocketTimeoutException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -46,10 +39,7 @@ public class AiService {
 
   private static final Logger log = LoggerFactory.getLogger(AiService.class);
   static final int MAX_STORED_PROMPT_CHARS = 4000;
-  private static final int MAX_SOURCES = 5;
-  // Gemini counts thinking tokens toward this limit; too low a cap cuts answers off.
   private static final int MAX_OUTPUT_TOKENS = 4096;
-  private static final int MAX_REASONING_OUTPUT_TOKENS = 8192;
 
   private static final String BASE_INSTRUCTION =
       "You are Leo AI, the helpful assistant inside a private chat application. "
@@ -67,7 +57,8 @@ public class AiService {
   record GenerationOptions(
       String model, boolean reasoning, boolean webSearch, String instruction) {}
 
-  private final ObjectProvider<Client> clientProvider;
+  private final ObjectMapper objectMapper;
+  private final HttpClient httpClient;
   private final ConversationService conversationService;
   private final MessageRepository messageRepository;
   private final MessageService messageService;
@@ -75,24 +66,31 @@ public class AiService {
   private final String model;
   private final String fastModel;
   private final String reasoningLevel;
+  private final String apiKey;
+  private final String baseUrl;
   private final AiRateLimiter rateLimiter;
 
   public AiService(
-      ObjectProvider<Client> clientProvider,
+      ObjectMapper objectMapper,
       ConversationService conversationService,
       MessageRepository messageRepository,
       MessageService messageService,
       AiRateLimiter rateLimiter,
       @Value("${app.ai.enabled:false}") boolean enabled,
-      @Value("${app.ai.model:gemini-3.8-flash}") String model,
+      @Value("${app.ai.api-key:}") String apiKey,
+      @Value("${app.ai.base-url:https://api.groq.com/openai/v1}") String baseUrl,
+      @Value("${app.ai.model:qwen/qwen3.8-27b}") String model,
       @Value("${app.ai.model-fast:}") String fastModel,
       @Value("${app.ai.reasoning-level:high}") String reasoningLevel) {
-    this.clientProvider = clientProvider;
+    this.objectMapper = objectMapper;
+    this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.conversationService = conversationService;
     this.messageRepository = messageRepository;
     this.messageService = messageService;
     this.rateLimiter = rateLimiter;
     this.enabled = enabled;
+    this.apiKey = apiKey == null ? "" : apiKey.strip();
+    this.baseUrl = baseUrl == null ? "https://api.groq.com/openai/v1" : baseUrl.strip();
     this.model = model;
     this.fastModel = fastModel == null || fastModel.isBlank() ? model : fastModel;
     this.reasoningLevel = reasoningLevel == null ? "" : reasoningLevel.strip().toLowerCase();
@@ -169,7 +167,7 @@ public class AiService {
   }
 
   private void requireConfigured() {
-    if (!enabled || clientProvider.getIfAvailable() == null) {
+    if (!enabled || apiKey.isBlank()) {
       throw new BusinessRuleException("AI assistant is not configured");
     }
   }
@@ -226,74 +224,59 @@ public class AiService {
   }
 
   private String generate(GenerationOptions options, String fullPrompt) {
-    // Gemini 3 models take a thinking level (low|medium|high), not a token budget.
-    boolean thinking = options.reasoning() && !reasoningLevel.isEmpty();
-    GenerateContentConfig.Builder config =
-        GenerateContentConfig.builder()
-            .maxOutputTokens(thinking ? MAX_REASONING_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS)
-            .temperature(0.3f);
-    if (thinking) {
-      config.thinkingConfig(ThinkingConfig.builder().thinkingLevel(reasoningLevel).build());
-    }
-    if (options.webSearch()) {
-      config.tools(Tool.builder().googleSearch(GoogleSearch.builder().build()).build());
-    }
+    Map<String, Object> requestBody =
+        Map.of(
+            "model",
+            options.model(),
+            "messages",
+            List.of(
+                Map.of("role", "system", "content", options.instruction()),
+                Map.of("role", "user", "content", fullPrompt)),
+            "temperature",
+            0.3,
+            "max_tokens",
+            MAX_OUTPUT_TOKENS);
     try {
-      GenerateContentResponse response =
-          clientProvider
-              .getObject()
-              .models
-              .generateContent(options.model(), fullPrompt, config.build());
-      String text = response.text();
-      if (text == null || text.isBlank()) {
-        log.warn("Gemini returned an empty response (model={})", options.model());
-        throw new AiProviderException("AI returned no response");
-      }
-      return text.strip() + formatSources(extractSources(response));
-    } catch (BusinessRuleException | AiProviderException e) {
-      throw e;
-    } catch (ApiException e) {
-      // Gemini rejected the call: code/status say why (e.g. 404 unknown model, 403 bad key,
-      // 429 quota). The prompt is never logged.
-      log.error(
-          "Gemini API error (model={}, reasoning={}, webSearch={}): code={} status={} message={}",
-          options.model(),
-          options.reasoning(),
-          options.webSearch(),
-          e.code(),
-          e.status(),
-          e.message());
-      if (hasTimeout(e)) throw new AiTimeoutException("AI provider timed out; retry shortly");
-      throw new AiProviderException("AI provider is unavailable");
-    } catch (Exception e) {
-      if (hasTimeout(e)) {
-        log.warn("Gemini call timed out (model={})", options.model());
+      HttpRequest request =
+          HttpRequest.newBuilder()
+              .uri(URI.create(baseUrl + "/chat/completions"))
+              .timeout(Duration.ofSeconds(25))
+              .header("Authorization", "Bearer " + apiKey)
+              .header("Content-Type", "application/json")
+              .POST(
+                  HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+              .build();
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() == 408 || response.statusCode() == 504) {
         throw new AiTimeoutException("AI provider timed out; retry shortly");
       }
-      log.error("Gemini call failed (model={})", options.model(), e);
+      if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        log.error(
+            "Groq API error (model={}, status={}): {}",
+            options.model(),
+            response.statusCode(),
+            response.body());
+        throw new AiProviderException("AI provider is unavailable");
+      }
+      JsonNode root = objectMapper.readTree(response.body());
+      String text = root.path("choices").path(0).path("message").path("content").asText(null);
+      if (text == null || text.isBlank()) {
+        log.warn("Groq returned an empty response (model={})", options.model());
+        throw new AiProviderException("AI returned no response");
+      }
+      return text.strip();
+    } catch (BusinessRuleException | AiProviderException | AiTimeoutException e) {
+      throw e;
+    } catch (HttpTimeoutException | java.net.ConnectException e) {
+      throw new AiTimeoutException("AI provider timed out; retry shortly");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new AiTimeoutException("AI provider request was interrupted");
+    } catch (Exception e) {
+      log.error("Groq call failed (model={})", options.model(), e);
       throw new AiProviderException("AI provider is unavailable");
     }
-  }
-
-  /** Web pages the answer was grounded on (title by URL), when web search was used. */
-  static Map<String, String> extractSources(GenerateContentResponse response) {
-    Map<String, String> sources = new LinkedHashMap<>();
-    for (Candidate candidate : response.candidates().orElse(List.of())) {
-      List<GroundingChunk> chunks =
-          candidate
-              .groundingMetadata()
-              .flatMap(GroundingMetadata::groundingChunks)
-              .orElse(List.of());
-      for (GroundingChunk chunk : chunks) {
-        var web = chunk.web();
-        web.flatMap(GroundingChunkWeb::uri)
-            .filter(uri -> uri.startsWith("https://") || uri.startsWith("http://"))
-            .ifPresent(
-                uri -> sources.putIfAbsent(uri, web.flatMap(GroundingChunkWeb::title).orElse(uri)));
-        if (sources.size() >= MAX_SOURCES) return sources;
-      }
-    }
-    return sources;
   }
 
   static String formatSources(Map<String, String> sources) {
@@ -307,14 +290,6 @@ public class AiService {
                     + e.getKey().replace(")", "%29")
                     + ")")
         .collect(Collectors.joining("\n", "\n\n**Sources**\n", ""));
-  }
-
-  private static boolean hasTimeout(Throwable error) {
-    for (Throwable current = error; current != null; current = current.getCause()) {
-      if (current instanceof TimeoutException || current instanceof SocketTimeoutException)
-        return true;
-    }
-    return false;
   }
 
   /** Recent messages before {@code beforeSeq}; the current prompt is sent separately. */
