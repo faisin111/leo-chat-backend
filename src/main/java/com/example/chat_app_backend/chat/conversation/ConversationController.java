@@ -147,12 +147,12 @@ public class ConversationController {
   }
 
   @Operation(
-      summary = "Leave and delete conversation",
+      summary = "Delete conversation",
       description =
-          "Leaves a normal conversation. It is permanently deleted only after its last active member leaves. AI conversations use DELETE /api/v1/ai/conversation.")
-  @ApiResponse(responseCode = "204", description = "Conversation left or deleted")
+          "Permanently deletes the conversation and all members, messages, reactions, attachments, and stored message media. AI conversations use DELETE /api/v1/ai/conversation.")
+  @ApiResponse(responseCode = "204", description = "Conversation and related data deleted")
   @DeleteMapping("/{id}")
-  public ResponseEntity<Void> leaveConversation(
+  public ResponseEntity<Void> deleteConversation(
       @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     conversationService.deleteConversationOrLeave(user.getId(), id);
     return ResponseEntity.noContent().build();

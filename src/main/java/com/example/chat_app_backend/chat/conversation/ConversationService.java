@@ -27,6 +27,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class ConversationService {
@@ -166,23 +168,28 @@ public class ConversationService {
             .findById(conversationId)
             .orElseThrow(() -> new NotFoundException("Conversation not found"));
     requireActiveMember(conversationId, userId);
-    boolean aiConversation = conversation.getType() == ConversationType.AI;
-    if (!aiConversation) {
-      ConversationMember member = requireActiveMember(conversationId, userId);
-      member.setLeftAt(Instant.now());
-      memberRepository.save(member);
-      if (memberRepository.countByIdConversationIdAndLeftAtIsNull(conversationId) > 0) {
-        if (ConversationMemberRole.OWNER.name().equals(member.getRole())) {
-          promoteNextOwner(conversationId);
-        }
-        return;
-      }
-    }
+    List<String> attachmentKeys =
+        attachmentRepository.findStorageKeysByConversationId(conversationId);
     reactionRepository.deleteByConversationId(conversationId);
     attachmentRepository.deleteByConversationId(conversationId);
     messageRepository.deleteByConversationId(conversationId);
     memberRepository.deleteByIdConversationId(conversationId);
     conversationRepository.delete(conversation);
+    afterCommit(() -> mediaService.deleteConversationObjects(attachmentKeys));
+  }
+
+  private void afterCommit(Runnable action) {
+    if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+      action.run();
+      return;
+    }
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            action.run();
+          }
+        });
   }
 
   @Transactional

@@ -12,6 +12,11 @@ public interface MessageAttachmentRepository extends JpaRepository<MessageAttach
 
   boolean existsByStorageKey(String storageKey);
 
+  @org.springframework.data.jpa.repository.Query(
+      "SELECT a.storageKey FROM MessageAttachment a WHERE a.messageId IN (SELECT m.id FROM Message m WHERE m.conversationId = :conversationId)")
+  List<String> findStorageKeysByConversationId(
+      @org.springframework.data.repository.query.Param("conversationId") UUID conversationId);
+
   @org.springframework.data.jpa.repository.Modifying
   @org.springframework.data.jpa.repository.Query(
       "DELETE FROM MessageAttachment a WHERE a.messageId IN (SELECT m.id FROM Message m WHERE m.conversationId = :conversationId)")

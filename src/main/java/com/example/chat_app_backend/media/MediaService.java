@@ -7,9 +7,12 @@ import com.example.chat_app_backend.media.dto.MediaConfirmRequest;
 import com.example.chat_app_backend.media.dto.MediaPresignRequest;
 import com.example.chat_app_backend.user.ProfileRepository;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -28,6 +31,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 
 @Service
 public class MediaService {
+
+  private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 
   private static final Map<String, String> SUPPORTED_EXTENSIONS =
       Map.ofEntries(
@@ -238,6 +243,25 @@ public class MediaService {
   public void deleteProfilePicture(UUID userId, String storageKey) {
     ensureEnabled();
     deleteObject(requireOwnedKey(userId, storageKey));
+  }
+
+  /** Best-effort cleanup for attachment objects after their database references are deleted. */
+  public void deleteConversationObjects(List<String> storageKeys) {
+    if (storageKeys == null || storageKeys.isEmpty() || client.getIfAvailable() == null) return;
+    for (String storageKey : storageKeys) {
+      if (storageKey == null
+          || !storageKey.startsWith("users/")
+          || storageKey.length() > 300
+          || storageKey.contains("..")) {
+        log.warn("Skipping invalid conversation attachment storage key during cleanup");
+        continue;
+      }
+      try {
+        deleteObject(storageKey);
+      } catch (BusinessRuleException e) {
+        log.warn("Could not delete conversation attachment object {}", storageKey, e);
+      }
+    }
   }
 
   private void deleteObject(String storageKey) {
