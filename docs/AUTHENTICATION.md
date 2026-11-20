@@ -97,7 +97,8 @@ WebSocket is a separate real-time transport. Browser cookies authenticate the HT
 - `JWT_ISSUER`: default `leo-chat-api`.
 - `JWT_AUDIENCE`: default `leo-chat-clients`.
 - `FRONTEND_URL`: client origin with `/verify-email` and `/reset-password` pages that submit tokens to the corresponding REST POST routes. Default `http://localhost:3000`.
-- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_SMTP_AUTH`, `MAIL_STARTTLS_ENABLED`, `MAIL_STARTTLS_REQUIRED`: configure email delivery. Dev defaults use localhost port 1025; no SMTP credentials are embedded in source.
+- `FORMSPREE_ENDPOINT`: Formspree endpoint used for verification and password-reset submissions. Enable Formspree autoresponder so the submitted `email` receives the message. If blank, the existing SMTP settings are used.
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_SMTP_AUTH`, `MAIL_STARTTLS_ENABLED`, `MAIL_STARTTLS_REQUIRED`: SMTP fallback configuration. Dev defaults use localhost port 1025; no SMTP credentials are embedded in source.
 - `APP_CORS_ALLOWED_ORIGINS`: exact comma-separated browser origins; credentialed CORS is enabled. For the deployed frontend shown in the console, set `APP_CORS_ALLOWED_ORIGINS=https://leo-chat-8oyas0n46-faisin-ss-projects.vercel.app` on the backend deployment.
 - `AUTH_COOKIE_SECURE`: production default true; local dev/test default false.
 - `AUTH_COOKIE_SAME_SITE`: Lax by default; None requires Secure=true. Auth and CSRF cookies share these settings.
