@@ -12,6 +12,7 @@ import com.example.chat_app_backend.common.exception.NotFoundException;
 import com.example.chat_app_backend.user.UserBlockRepository;
 import com.example.chat_app_backend.user.UserRepository;
 import com.example.chat_app_backend.user.UserService;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +52,7 @@ public class AiActionService {
       case "LIST_CONVERSATIONS" -> listConversations(userId, request);
       case "GET_BLOCKED_USERS" -> blockedUsers(userId);
       case "GET_USER" -> getUser(userId, request);
+      case "GET_MY_PROFILE" -> getMyProfile(userId);
       case "SEND_MESSAGE" -> sendMessage(userId, request);
       case "START_CALL" -> startCall(userId, request);
       default -> throw new BusinessRuleException("Unsupported AI action");
@@ -83,6 +85,24 @@ public class AiActionService {
   private AiActionResponse getUser(UUID userId, AiActionRequest request) {
     if (request.targetUserId() == null) throw new BusinessRuleException("targetUserId is required");
     return done("GET_USER", userService.getUserById(request.targetUserId(), userId).getBody());
+  }
+
+  private AiActionResponse getMyProfile(UUID userId) {
+    var profile = userService.getUserById(userId).getBody();
+    if (profile == null) throw new NotFoundException("Profile not found");
+    Map<String, Object> safeDetails = new LinkedHashMap<>();
+    safeDetails.put("id", profile.getId());
+    safeDetails.put("username", profile.getUsername());
+    safeDetails.put("displayName", profile.getDisplayName());
+    safeDetails.put("email", profile.getEmail());
+    safeDetails.put("role", profile.getRole());
+    safeDetails.put("bio", profile.getBio());
+    safeDetails.put("region", profile.getRegion());
+    safeDetails.put("age", profile.getAge());
+    safeDetails.put("phoneNumber", profile.getPhoneNumber());
+    safeDetails.put("profilePictureUrl", profile.getProfilePictureUrl());
+    safeDetails.put("emailVerified", profile.isEmailVerified());
+    return done("GET_MY_PROFILE", safeDetails);
   }
 
   private AiActionResponse sendMessage(UUID userId, AiActionRequest request) {

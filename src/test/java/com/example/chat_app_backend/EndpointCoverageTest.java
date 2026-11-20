@@ -370,6 +370,11 @@ class EndpointCoverageTest {
         a,
         200);
     call(
+        "POST ai/actions get my profile",
+        body(post("/api/v1/ai/actions"), Map.of("action", "GET_MY_PROFILE")),
+        a,
+        200);
+    call(
         "DELETE ai/conversations/{id} normal chat",
         delete("/api/v1/ai/conversations/" + gid),
         a,
