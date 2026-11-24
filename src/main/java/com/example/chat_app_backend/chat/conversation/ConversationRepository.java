@@ -33,7 +33,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
   List<Conversation> findLegacyAiConversations(@Param("userId") UUID userId);
 
   @Query(
-      "SELECT c FROM Conversation c JOIN ConversationMember m ON c.id = m.id.conversationId WHERE c.type = com.example.chat_app_backend.chat.conversation.ConversationType.AI AND c.createdBy = :userId AND m.id.userId = :userId AND m.leftAt IS NULL ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
+      "SELECT c FROM Conversation c JOIN ConversationMember m ON c.id = m.id.conversationId WHERE c.type = com.example.chat_app_backend.chat.conversation.ConversationType.AI AND c.createdBy = :userId AND m.id.userId = :userId AND m.leftAt IS NULL AND m.hiddenAt IS NULL ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
   List<Conversation> findAiConversationsForUser(@Param("userId") UUID userId, Pageable pageable);
 
   @Modifying
@@ -45,12 +45,12 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
   Optional<Long> getLastSeq(@Param("id") UUID id);
 
   @Query(
-      "SELECT c FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId AND cm.leftAt IS NULL ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
+      "SELECT c FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId AND cm.leftAt IS NULL AND cm.hiddenAt IS NULL ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
   Page<Conversation> findByUserIdOrderByLastMessageAtDesc(
       @Param("userId") UUID userId, Pageable pageable);
 
   @Query(
-      "SELECT c FROM Conversation c JOIN ConversationMember currentMember ON c.id = currentMember.id.conversationId WHERE currentMember.id.userId = :userId AND currentMember.leftAt IS NULL AND (:query IS NULL OR lower(coalesce(c.title, '')) LIKE lower(concat('%', :query, '%')) OR EXISTS (SELECT 1 FROM ConversationMember matchedMember JOIN User u ON u.id = matchedMember.id.userId WHERE matchedMember.id.conversationId = c.id AND matchedMember.leftAt IS NULL AND (lower(coalesce(u.username, '')) LIKE lower(concat('%', :query, '%')) OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :query, '%'))))) ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
+      "SELECT c FROM Conversation c JOIN ConversationMember currentMember ON c.id = currentMember.id.conversationId WHERE currentMember.id.userId = :userId AND currentMember.leftAt IS NULL AND currentMember.hiddenAt IS NULL AND (:query IS NULL OR lower(coalesce(c.title, '')) LIKE lower(concat('%', :query, '%')) OR EXISTS (SELECT 1 FROM ConversationMember matchedMember JOIN User u ON u.id = matchedMember.id.userId WHERE matchedMember.id.conversationId = c.id AND matchedMember.leftAt IS NULL AND (lower(coalesce(u.username, '')) LIKE lower(concat('%', :query, '%')) OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :query, '%'))))) ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
   Page<Conversation> searchUserConversations(
       @Param("userId") UUID userId, @Param("query") String query, Pageable pageable);
 
@@ -77,6 +77,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
       @Param("status") String status, @Param("query") String query, Pageable pageable);
 
   @Query(
-      "SELECT COALESCE(SUM(c.lastSeq - cm.lastReadSeq), 0) FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId AND cm.leftAt IS NULL AND c.lastSeq > cm.lastReadSeq")
+      "SELECT COALESCE(SUM(c.lastSeq - cm.lastReadSeq), 0) FROM Conversation c JOIN ConversationMember cm ON c.id = cm.id.conversationId WHERE cm.id.userId = :userId AND cm.leftAt IS NULL AND cm.hiddenAt IS NULL AND c.lastSeq > cm.lastReadSeq")
   Long getUnreadCountByUserId(@Param("userId") UUID userId);
 }

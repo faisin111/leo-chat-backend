@@ -5,6 +5,7 @@ import com.example.chat_app_backend.chat.conversation.dto.ChangeRoleRequest;
 import com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResponse;
 import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
+import com.example.chat_app_backend.chat.conversation.dto.HideConversationsRequest;
 import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
 import com.example.chat_app_backend.chat.message.MessageAttachmentRepository;
@@ -295,6 +296,39 @@ public class ConversationService {
     return new CursorPageResponse<>(responses, hasMore, nextCursor);
   }
 
+  @Transactional
+  public int hideConversations(UUID userId, HideConversationsRequest request, boolean hidden) {
+    String scope = request.scope().strip().toUpperCase(java.util.Locale.ROOT);
+    Instant value = hidden ? Instant.now() : null;
+    return switch (scope) {
+      case "ALL" -> memberRepository.setHiddenForUser(userId, value);
+      case "CONVERSATION" -> {
+        if (request.conversationId() == null)
+          throw new BusinessRuleException("conversationId is required");
+        requireActiveMember(request.conversationId(), userId);
+        yield memberRepository
+            .findById(new ConversationMemberId(request.conversationId(), userId))
+            .map(
+                member -> {
+                  member.setHiddenAt(value);
+                  member.setHistoryHiddenAt(value);
+                  memberRepository.save(member);
+                  return 1;
+                })
+            .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
+      }
+      case "USER" -> {
+        if (request.userId() == null) throw new BusinessRuleException("userId is required");
+        if (userId.equals(request.userId()))
+          throw new BusinessRuleException("Cannot hide conversations with yourself");
+        if (!userRepository.existsById(request.userId()))
+          throw new NotFoundException("Target user not found");
+        yield memberRepository.setHiddenForUserConversations(userId, request.userId(), value);
+      }
+      default -> throw new BusinessRuleException("scope must be ALL, USER, or CONVERSATION");
+    };
+  }
+
   private ConversationResponse mapToResponse(Conversation c, UUID currentUserId) {
     String targetUsername = null;
     String targetDisplayName = null;
@@ -409,7 +443,8 @@ public class ConversationService {
                     m.getJoinedAt(),
                     m.getLeftAt(),
                     m.getPinnedAt(),
-                    m.getArchivedAt()))
+                    m.getArchivedAt(),
+                    m.getHiddenAt()))
         .collect(Collectors.toList());
   }
 
@@ -536,5 +571,13 @@ public class ConversationService {
         .findById(new ConversationMemberId(conversationId, userId))
         .filter(member -> member.getLeftAt() == null)
         .orElseThrow(() -> new ForbiddenException("Not a member of this conversation"));
+  }
+
+  @Transactional(readOnly = true)
+  public void assertHistoryVisible(UUID userId, UUID conversationId) {
+    ConversationMember member = requireActiveMember(conversationId, userId);
+    if (member.getHiddenAt() != null || member.getHistoryHiddenAt() != null) {
+      throw new NotFoundException("Conversation history not found");
+    }
   }
 }

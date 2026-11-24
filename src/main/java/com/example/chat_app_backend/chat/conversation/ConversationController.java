@@ -7,6 +7,7 @@ import com.example.chat_app_backend.chat.conversation.dto.ConversationPageRespon
 import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.conversation.dto.CreateDirectChatRequest;
 import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
+import com.example.chat_app_backend.chat.conversation.dto.HideConversationsRequest;
 import com.example.chat_app_backend.chat.conversation.dto.MuteRequest;
 import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
@@ -86,6 +87,25 @@ public class ConversationController {
   public ResponseEntity<ConversationResponse> getConversation(
       @AuthenticationPrincipal UserDetailsImpl user, @PathVariable UUID id) {
     return ResponseEntity.ok(conversationService.getConversation(user.getId(), id));
+  }
+
+  @Operation(
+      summary = "Hide or unhide conversations",
+      description =
+          "Use scope ALL, USER with userId, or CONVERSATION with conversationId. Hiding only changes the requesting user's list; it never deletes shared data.")
+  @ApiResponse(responseCode = "200", description = "Number of memberships changed")
+  @PutMapping("/hide")
+  public ResponseEntity<Integer> hideConversations(
+      @AuthenticationPrincipal UserDetailsImpl user,
+      @Valid @RequestBody HideConversationsRequest request) {
+    return ResponseEntity.ok(conversationService.hideConversations(user.getId(), request, true));
+  }
+
+  @DeleteMapping("/hide")
+  public ResponseEntity<Integer> unhideConversations(
+      @AuthenticationPrincipal UserDetailsImpl user,
+      @Valid @RequestBody HideConversationsRequest request) {
+    return ResponseEntity.ok(conversationService.hideConversations(user.getId(), request, false));
   }
 
   @Operation(summary = "Get unread count")

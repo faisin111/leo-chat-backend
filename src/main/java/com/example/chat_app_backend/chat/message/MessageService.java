@@ -280,7 +280,7 @@ public class MessageService {
   @Transactional(readOnly = true)
   public CursorPageResponse<MessageResponse> getHistory(
       UUID userId, UUID convId, Long beforeSeq, Long afterSeq, int limit, String query) {
-    conversationService.assertActiveMember(userId, convId);
+    conversationService.assertHistoryVisible(userId, convId);
     if (limit < 1
         || limit > 100
         || (beforeSeq != null && afterSeq != null)
@@ -320,7 +320,7 @@ public class MessageService {
   public MessageResponse getMessage(UUID userId, UUID id) {
     Message m =
         messageRepository.findById(id).orElseThrow(() -> new NotFoundException("Not found"));
-    conversationService.assertActiveMember(userId, m.getConversationId());
+    conversationService.assertHistoryVisible(userId, m.getConversationId());
     return mapToResponse(m);
   }
 

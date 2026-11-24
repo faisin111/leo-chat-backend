@@ -27,4 +27,17 @@ public interface ConversationMemberRepository
   long countByIdConversationIdAndLeftAtIsNull(UUID conversationId);
 
   void deleteByIdConversationId(UUID conversationId);
+
+  @Modifying
+  @Query(
+      "UPDATE ConversationMember m SET m.hiddenAt = :hiddenAt, m.historyHiddenAt = :hiddenAt WHERE m.id.userId = :userId AND m.leftAt IS NULL")
+  int setHiddenForUser(@Param("userId") UUID userId, @Param("hiddenAt") java.time.Instant hiddenAt);
+
+  @Modifying
+  @Query(
+      "UPDATE ConversationMember m SET m.hiddenAt = :hiddenAt, m.historyHiddenAt = :hiddenAt WHERE m.id.userId = :userId AND m.leftAt IS NULL AND EXISTS (SELECT target.id.conversationId FROM ConversationMember target WHERE target.id.conversationId = m.id.conversationId AND target.id.userId = :targetUserId AND target.leftAt IS NULL)")
+  int setHiddenForUserConversations(
+      @Param("userId") UUID userId,
+      @Param("targetUserId") UUID targetUserId,
+      @Param("hiddenAt") java.time.Instant hiddenAt);
 }

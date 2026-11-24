@@ -30,6 +30,10 @@ public class ConversationMember {
   private Instant pinnedAt;
   private Instant archivedAt;
 
+  private Instant hiddenAt;
+
+  private Instant historyHiddenAt;
+
   public ConversationMemberId getId() {
     return id;
   }
@@ -92,5 +96,21 @@ public class ConversationMember {
 
   public void setArchivedAt(Instant archivedAt) {
     this.archivedAt = archivedAt;
+  }
+
+  public Instant getHiddenAt() {
+    return hiddenAt;
+  }
+
+  public void setHiddenAt(Instant hiddenAt) {
+    this.hiddenAt = hiddenAt;
+  }
+
+  public Instant getHistoryHiddenAt() {
+    return historyHiddenAt;
+  }
+
+  public void setHistoryHiddenAt(Instant historyHiddenAt) {
+    this.historyHiddenAt = historyHiddenAt;
   }
 }
