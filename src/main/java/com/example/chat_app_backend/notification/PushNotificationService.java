@@ -120,11 +120,6 @@ public class PushNotificationService {
         Message message =
             Message.builder()
                 .setToken(device.getToken())
-                .setNotification(
-                    Notification.builder()
-                        .setTitle(isVideo ? "Incoming video call" : "Incoming call")
-                        .setBody(callerName + " is calling you")
-                        .build())
                 .putAllData(
                     Map.ofEntries(
                         Map.entry("type", "INCOMING_CALL"),
