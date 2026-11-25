@@ -25,22 +25,37 @@ public class PushNotificationService {
   public PushNotificationService(
       PushDeviceTokenRepository tokenRepository,
       @Value("${firebase.project-id:}") String projectId,
+      @Value("${firebase.private-key-id:}") String privateKeyId,
+      @Value("${firebase.client-id:}") String clientId,
       @Value("${firebase.client-email:}") String clientEmail,
       @Value("${firebase.private-key:}") String privateKey) {
     this.tokenRepository = tokenRepository;
-    this.enabled = initialize(projectId, clientEmail, privateKey);
+    this.enabled = initialize(projectId, privateKeyId, clientId, clientEmail, privateKey);
   }
 
-  private boolean initialize(String projectId, String clientEmail, String privateKey) {
-    if (projectId.isBlank() || clientEmail.isBlank() || privateKey.isBlank()) {
+  private boolean initialize(
+      String projectId,
+      String privateKeyId,
+      String clientId,
+      String clientEmail,
+      String privateKey) {
+    if (projectId.isBlank()
+        || privateKeyId.isBlank()
+        || clientId.isBlank()
+        || clientEmail.isBlank()
+        || privateKey.isBlank()) {
       log.info("Firebase push notifications disabled because credentials are not configured");
       return false;
     }
     try {
       String json =
           String.format(
-              "{\"type\":\"service_account\",\"project_id\":\"%s\",\"private_key\":\"%s\",\"client_email\":\"%s\"}",
-              escape(projectId), escape(privateKey.replace("\\n", "\n")), escape(clientEmail));
+              "{\"type\":\"service_account\",\"project_id\":\"%s\",\"private_key_id\":\"%s\",\"private_key\":\"%s\",\"client_email\":\"%s\",\"client_id\":\"%s\"}",
+              escape(projectId),
+              escape(privateKeyId),
+              escape(privateKey.replace("\\n", "\n")),
+              escape(clientEmail),
+              escape(clientId));
       FirebaseOptions options =
           FirebaseOptions.builder()
               .setCredentials(
