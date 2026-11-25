@@ -98,6 +98,39 @@ public class MessageService {
     return sendMessage(senderId, convId, request, null);
   }
 
+  /** Stores one idempotent call entry in the conversation history. */
+  @Transactional
+  public MessageResponse recordCallMessage(UUID senderId, UUID convId, UUID callId) {
+    conversationService.assertActiveMember(senderId, convId);
+    String clientMessageId = "call-" + callId;
+    Optional<Message> existing =
+        messageRepository.findByConversationIdAndSenderIdAndClientMessageId(
+            convId, senderId, clientMessageId);
+    if (existing.isPresent()) return mapToResponse(existing.get());
+
+    Instant now = Instant.now();
+    conversationRepository
+        .lockById(convId)
+        .orElseThrow(() -> new NotFoundException("Conversation not found"));
+    conversationRepository.incrementSeqAndTimestamp(convId, now);
+    long nextSeq =
+        conversationRepository
+            .getLastSeq(convId)
+            .orElseThrow(() -> new NotFoundException("Conversation not found"));
+
+    Message call = new Message();
+    call.setConversationId(convId);
+    call.setSenderId(senderId);
+    call.setSeq(nextSeq);
+    call.setClientMessageId(clientMessageId);
+    call.setType(MessageType.CALL);
+    call.setContent("Call");
+    call.setCreatedAt(now);
+    MessageResponse response = mapToResponse(messageRepository.saveAndFlush(call));
+    broadcastAfterCommit(convId, response);
+    return response;
+  }
+
   @Transactional
   public MessageResponse sendMessage(
       UUID senderId, UUID convId, SendMessageRequest request, String ackUsername) {

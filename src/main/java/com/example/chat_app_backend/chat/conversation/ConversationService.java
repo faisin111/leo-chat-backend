@@ -6,6 +6,7 @@ import com.example.chat_app_backend.chat.conversation.dto.ConversationMemberResp
 import com.example.chat_app_backend.chat.conversation.dto.ConversationResponse;
 import com.example.chat_app_backend.chat.conversation.dto.CreateGroupChatRequest;
 import com.example.chat_app_backend.chat.conversation.dto.HideConversationsRequest;
+import com.example.chat_app_backend.chat.conversation.dto.LastMessageResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UnreadCountResponse;
 import com.example.chat_app_backend.chat.conversation.dto.UpdateGroupChatRequest;
 import com.example.chat_app_backend.chat.message.MessageAttachmentRepository;
@@ -333,6 +334,19 @@ public class ConversationService {
     String targetUsername = null;
     String targetDisplayName = null;
     String targetAvatarUrl = null;
+    LastMessageResponse lastMessage =
+        messageRepository
+            .findFirstByConversationIdOrderBySeqDesc(c.getId())
+            .map(
+                message ->
+                    new LastMessageResponse(
+                        message.getId(),
+                        message.getSenderId(),
+                        message.getType().name(),
+                        message.getDeletedAt() == null ? message.getContent() : null,
+                        message.getCreatedAt(),
+                        message.getDeletedAt() != null))
+            .orElse(null);
 
     if (c.getType() == ConversationType.DIRECT && c.getDirectKey() != null) {
       String[] parts = c.getDirectKey().split(":");
@@ -369,7 +383,8 @@ public class ConversationService {
         c.getStatus(),
         targetUsername,
         targetDisplayName,
-        targetAvatarUrl);
+        targetAvatarUrl,
+        lastMessage);
   }
 
   @Transactional(readOnly = true)

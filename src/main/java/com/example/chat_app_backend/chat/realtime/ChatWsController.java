@@ -141,6 +141,9 @@ public class ChatWsController {
         .contains(action)) {
       throw new BusinessRuleException("Unsupported call signal action");
     }
+    if ("INVITE".equals(action)) {
+      messageService.recordCallMessage(user.getId(), request.conversationId(), request.callId());
+    }
     CallSignalEvent event =
         new CallSignalEvent(
             request.conversationId(),

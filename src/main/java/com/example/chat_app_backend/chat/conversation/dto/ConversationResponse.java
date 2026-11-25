@@ -16,4 +16,5 @@ public record ConversationResponse(
     String status,
     String targetUsername,
     String targetDisplayName,
-    String targetAvatarUrl) {}
+    String targetAvatarUrl,
+    LastMessageResponse lastMessage) {}
