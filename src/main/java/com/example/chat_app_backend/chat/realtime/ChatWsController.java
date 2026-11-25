@@ -19,7 +19,15 @@ import com.example.chat_app_backend.notification.PushNotificationService;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.user.UserRepository;
 import jakarta.validation.Valid;
+import java.security.Principal;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -31,6 +39,7 @@ import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 @Controller
 public class ChatWsController {
@@ -42,6 +51,7 @@ public class ChatWsController {
   private final UserRepository userRepository;
   private final AiService aiService;
   private final PushNotificationService pushNotificationService;
+  private final PendingCallSignalService pendingCallSignalService;
 
   public ChatWsController(
       MessageService messageService,
@@ -50,7 +60,8 @@ public class ChatWsController {
       UserRepository userRepository,
       SimpUserRegistry userRegistry,
       AiService aiService,
-      PushNotificationService pushNotificationService) {
+      PushNotificationService pushNotificationService,
+      PendingCallSignalService pendingCallSignalService) {
     this.conversationService = conversationService;
     this.messageService = messageService;
     this.messagingTemplate = messagingTemplate;
@@ -58,6 +69,7 @@ public class ChatWsController {
     this.userRegistry = userRegistry;
     this.aiService = aiService;
     this.pushNotificationService = pushNotificationService;
+    this.pendingCallSignalService = pendingCallSignalService;
   }
 
   @MessageMapping("/chat.typing")
@@ -141,13 +153,35 @@ public class ChatWsController {
     conversationService.assertActiveMember(target.getId(), request.conversationId());
 
     String action = request.action().trim().toUpperCase(java.util.Locale.ROOT);
-    if (!java.util.Set.of("INVITE", "OFFER", "ANSWER", "ICE_CANDIDATE", "REJECT", "BUSY", "END")
+    if (!java.util.Set.of(
+            "INVITE",
+            "OFFER",
+            "ACCEPT",
+            "READY",
+            "ANSWER",
+            "ICE_CANDIDATE",
+            "REJECT",
+            "BUSY",
+            "END")
         .contains(action)) {
       throw new BusinessRuleException("Unsupported call signal action");
     }
+    boolean pushSent = false;
     if ("INVITE".equals(action)) {
       messageService.recordCallMessage(user.getId(), request.conversationId(), request.callId());
+      boolean isVideo = request.sdp() != null && request.sdp().contains("m=video");
+      pushSent =
+          pushNotificationService.sendIncomingCall(
+              target.getId(),
+              request.callId(),
+              request.conversationId(),
+              user.getId(),
+              user.getUsername(),
+              isVideo);
+    } else if ("END".equals(action) || "REJECT".equals(action) || "BUSY".equals(action)) {
+      pendingCallSignalService.clearCall(request.callId());
     }
+
     CallSignalEvent event =
         new CallSignalEvent(
             request.conversationId(),
@@ -161,14 +195,30 @@ public class ChatWsController {
             request.sdpMid(),
             request.sdpMLineIndex());
     if (userRegistry.getUser(target.getUsername()) == null) {
-      if ("INVITE".equals(action)) {
-        pushNotificationService.sendIncomingCall(
-            target.getId(),
-            request.callId(),
-            request.conversationId(),
-            user.getId(),
-            user.getUsername());
+      if ("INVITE".equals(action) && pushSent) {
+        pendingCallSignalService.recordInvite(target.getUsername(), event);
+        messagingTemplate.convertAndSendToUser(
+            user.getUsername(),
+            "/queue/calls",
+            new CallSignalEvent(
+                request.conversationId(),
+                request.callId(),
+                user.getId(),
+                user.getUsername(),
+                target.getId(),
+                "RINGING",
+                null,
+                null,
+                null,
+                null));
+        return;
+      } else if (("OFFER".equals(action) || "ICE_CANDIDATE".equals(action))
+          && pendingCallSignalService.bufferIfPending(target.getUsername(), event)) {
+        return;
+      } else if ("END".equals(action) || "REJECT".equals(action) || "BUSY".equals(action)) {
+        return;
       }
+
       messagingTemplate.convertAndSendToUser(
           user.getUsername(),
           "/queue/calls",
@@ -200,6 +250,46 @@ public class ChatWsController {
             null,
             null,
             null));
+  }
+
+  /** Flushes queued WebRTC OFFER/ICE signals when a push-woken mobile user subscribes. */
+  @EventListener
+  @Order(Ordered.LOWEST_PRECEDENCE)
+  public void onSessionSubscribe(SessionSubscribeEvent subscribeEvent) {
+    SimpMessageHeaderAccessor accessor =
+        SimpMessageHeaderAccessor.wrap(subscribeEvent.getMessage());
+    String destination = accessor.getDestination();
+    Principal principal = subscribeEvent.getUser();
+    if (principal == null || !"/user/queue/calls".equals(destination)) {
+      return;
+    }
+
+    String username = principal.getName();
+    List<CallSignalEvent> pendingSignals = pendingCallSignalService.drainSignals(username);
+    if (pendingSignals.isEmpty()) {
+      return;
+    }
+
+    Set<UUID> deliveredCalls = new HashSet<>();
+    for (CallSignalEvent pending : pendingSignals) {
+      messagingTemplate.convertAndSendToUser(username, "/queue/calls", pending);
+      if (deliveredCalls.add(pending.callId()) && pending.fromUsername() != null) {
+        messagingTemplate.convertAndSendToUser(
+            pending.fromUsername(),
+            "/queue/calls",
+            new CallSignalEvent(
+                pending.conversationId(),
+                pending.callId(),
+                pending.fromUserId(),
+                pending.fromUsername(),
+                pending.targetUserId(),
+                "DELIVERED",
+                null,
+                null,
+                null,
+                null));
+      }
+    }
   }
 
   @MessageMapping("/ai.chat")

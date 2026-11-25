@@ -101,9 +101,20 @@ public class PushNotificationService {
     tokenRepository.deleteByTokenAndUserId(token, userId);
   }
 
-  public void sendIncomingCall(
+  public boolean sendIncomingCall(
       UUID targetUserId, UUID callId, UUID conversationId, UUID callerId, String callerName) {
-    if (!enabled) return;
+    return sendIncomingCall(targetUserId, callId, conversationId, callerId, callerName, false);
+  }
+
+  public boolean sendIncomingCall(
+      UUID targetUserId,
+      UUID callId,
+      UUID conversationId,
+      UUID callerId,
+      String callerName,
+      boolean isVideo) {
+    if (!enabled) return false;
+    boolean deliveredAny = false;
     for (PushDeviceToken device : tokenRepository.findAllByUserId(targetUserId)) {
       try {
         Message message =
@@ -111,13 +122,14 @@ public class PushNotificationService {
                 .setToken(device.getToken())
                 .setNotification(
                     Notification.builder()
-                        .setTitle("Incoming call")
+                        .setTitle(isVideo ? "Incoming video call" : "Incoming call")
                         .setBody(callerName + " is calling you")
                         .build())
                 .putAllData(
                     Map.ofEntries(
                         Map.entry("type", "INCOMING_CALL"),
                         Map.entry("category", "CALL"),
+                        Map.entry("callType", isVideo ? "video" : "audio"),
                         Map.entry("notificationId", callId.toString()),
                         Map.entry("callId", callId.toString()),
                         Map.entry("conversationId", conversationId.toString()),
@@ -130,10 +142,12 @@ public class PushNotificationService {
                     AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH).build())
                 .build();
         FirebaseMessaging.getInstance().send(message);
+        deliveredAny = true;
       } catch (Exception ex) {
         log.warn("Unable to send incoming call push to user {}", targetUserId, ex);
       }
     }
+    return deliveredAny;
   }
 
   public void sendMessageNotification(
