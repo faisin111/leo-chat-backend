@@ -9,6 +9,7 @@ import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -114,17 +115,17 @@ public class PushNotificationService {
                         .setBody(callerName + " is calling you")
                         .build())
                 .putAllData(
-                    Map.of(
-                        "type",
-                        "INCOMING_CALL",
-                        "callId",
-                        callId.toString(),
-                        "conversationId",
-                        conversationId.toString(),
-                        "callerId",
-                        callerId.toString(),
-                        "callerName",
-                        callerName))
+                    Map.ofEntries(
+                        Map.entry("type", "INCOMING_CALL"),
+                        Map.entry("category", "CALL"),
+                        Map.entry("notificationId", callId.toString()),
+                        Map.entry("callId", callId.toString()),
+                        Map.entry("conversationId", conversationId.toString()),
+                        Map.entry("callerId", callerId.toString()),
+                        Map.entry("callerName", callerName),
+                        Map.entry("timestamp", Instant.now().toString()),
+                        Map.entry("groupKey", "calls"),
+                        Map.entry("clickAction", "OPEN_CALL")))
                 .setAndroidConfig(
                     AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH).build())
                 .build();
@@ -148,12 +149,19 @@ public class PushNotificationService {
         "NEW_MESSAGE",
         senderName,
         preview,
-        Map.of(
-            "type", "NEW_MESSAGE",
-            "messageId", messageId.toString(),
-            "conversationId", conversationId.toString(),
-            "senderId", senderId.toString(),
-            "messageType", messageType));
+        Map.ofEntries(
+            Map.entry("type", "NEW_MESSAGE"),
+            Map.entry("messageId", messageId.toString()),
+            Map.entry("conversationId", conversationId.toString()),
+            Map.entry("senderId", senderId.toString()),
+            Map.entry("messageType", messageType),
+            Map.entry("senderName", senderName),
+            Map.entry("preview", preview),
+            Map.entry("timestamp", Instant.now().toString()),
+            Map.entry("category", "MESSAGE"),
+            Map.entry("groupKey", "conversation-" + conversationId),
+            Map.entry("notificationId", messageId.toString()),
+            Map.entry("clickAction", "OPEN_CONVERSATION")));
   }
 
   public void sendReactionNotification(
@@ -163,15 +171,16 @@ public class PushNotificationService {
         "MESSAGE_REACTION",
         senderName,
         "Reacted " + emoji + " to your message",
-        Map.of(
-            "type",
-            "MESSAGE_REACTION",
-            "messageId",
-            messageId.toString(),
-            "conversationId",
-            conversationId.toString(),
-            "emoji",
-            emoji));
+        Map.ofEntries(
+            Map.entry("type", "MESSAGE_REACTION"),
+            Map.entry("messageId", messageId.toString()),
+            Map.entry("conversationId", conversationId.toString()),
+            Map.entry("emoji", emoji),
+            Map.entry("timestamp", Instant.now().toString()),
+            Map.entry("category", "REACTION"),
+            Map.entry("groupKey", "conversation-" + conversationId),
+            Map.entry("notificationId", messageId + "-reaction-" + emoji),
+            Map.entry("clickAction", "OPEN_CONVERSATION")));
   }
 
   private void send(
