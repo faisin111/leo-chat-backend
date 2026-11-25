@@ -119,4 +119,63 @@ public class PushNotificationService {
       }
     }
   }
+
+  public void sendMessageNotification(
+      UUID targetUserId,
+      UUID messageId,
+      UUID conversationId,
+      UUID senderId,
+      String senderName,
+      String messageType,
+      String preview) {
+    send(
+        targetUserId,
+        "NEW_MESSAGE",
+        senderName,
+        preview,
+        Map.of(
+            "type", "NEW_MESSAGE",
+            "messageId", messageId.toString(),
+            "conversationId", conversationId.toString(),
+            "senderId", senderId.toString(),
+            "messageType", messageType));
+  }
+
+  public void sendReactionNotification(
+      UUID targetUserId, UUID messageId, UUID conversationId, String senderName, String emoji) {
+    send(
+        targetUserId,
+        "MESSAGE_REACTION",
+        senderName,
+        "Reacted " + emoji + " to your message",
+        Map.of(
+            "type",
+            "MESSAGE_REACTION",
+            "messageId",
+            messageId.toString(),
+            "conversationId",
+            conversationId.toString(),
+            "emoji",
+            emoji));
+  }
+
+  private void send(
+      UUID targetUserId, String type, String title, String body, Map<String, String> data) {
+    if (!enabled) return;
+    for (PushDeviceToken device : tokenRepository.findAllByUserId(targetUserId)) {
+      try {
+        Message message =
+            Message.builder()
+                .setToken(device.getToken())
+                .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+                .putAllData(data)
+                .setAndroidConfig(
+                    AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH).build())
+                .build();
+        FirebaseMessaging.getInstance().send(message);
+      } catch (Exception ex) {
+        log.warn("Unable to send {} push to user {}", type, targetUserId, ex);
+      }
+    }
+  }
 }

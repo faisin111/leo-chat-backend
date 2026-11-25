@@ -19,6 +19,7 @@ import com.example.chat_app_backend.common.enums.ConversationStatus;
 import com.example.chat_app_backend.common.exception.BusinessRuleException;
 import com.example.chat_app_backend.common.exception.ForbiddenException;
 import com.example.chat_app_backend.common.exception.NotFoundException;
+import com.example.chat_app_backend.notification.PushNotificationService;
 import com.example.chat_app_backend.user.User;
 import com.example.chat_app_backend.user.UserRepository;
 import java.time.Duration;
@@ -51,6 +52,7 @@ public class MessageService {
   private final MessageReactionRepository reactionRepository;
   private final MessageAttachmentRepository attachmentRepository;
   private final UserRepository userRepository;
+  private final PushNotificationService pushNotificationService;
 
   @Autowired
   public MessageService(
@@ -61,7 +63,8 @@ public class MessageService {
       ConversationService conversationService,
       MessageReactionRepository reactionRepository,
       UserRepository userRepository,
-      MessageAttachmentRepository attachmentRepository) {
+      MessageAttachmentRepository attachmentRepository,
+      PushNotificationService pushNotificationService) {
     this.messageRepository = messageRepository;
     this.conversationRepository = conversationRepository;
     this.memberRepository = memberRepository;
@@ -70,6 +73,7 @@ public class MessageService {
     this.reactionRepository = reactionRepository;
     this.userRepository = userRepository;
     this.attachmentRepository = attachmentRepository;
+    this.pushNotificationService = pushNotificationService;
   }
 
   /**
@@ -89,6 +93,7 @@ public class MessageService {
         messagingTemplate,
         conversationService,
         reactionRepository,
+        null,
         null,
         null);
   }
@@ -128,6 +133,7 @@ public class MessageService {
     call.setCreatedAt(now);
     MessageResponse response = mapToResponse(messageRepository.saveAndFlush(call));
     broadcastAfterCommit(convId, response);
+    notifyMessageRecipients(convId, senderId, response);
     return response;
   }
 
@@ -228,6 +234,7 @@ public class MessageService {
       afterCommit(
           () -> messagingTemplate.convertAndSendToUser(ackUsername, "/queue/acks", response));
     broadcastAfterCommit(convId, response);
+    notifyMessageRecipients(convId, senderId, response);
     return response;
   }
 
@@ -411,6 +418,22 @@ public class MessageService {
     reaction.setUserId(userId);
     reaction.setEmoji(request.emoji());
     reactionRepository.save(reaction);
+    if (pushNotificationService != null
+        && userRepository != null
+        && message.getSenderId() != null
+        && !userId.equals(message.getSenderId())) {
+      User reactor = userRepository.findById(userId).orElse(null);
+      if (reactor != null) {
+        afterCommit(
+            () ->
+                pushNotificationService.sendReactionNotification(
+                    message.getSenderId(),
+                    message.getId(),
+                    message.getConversationId(),
+                    reactor.getDisplayName(),
+                    request.emoji()));
+      }
+    }
     broadcastAfterCommit(message.getConversationId(), mapToResponse(message));
   }
 
@@ -426,6 +449,40 @@ public class MessageService {
   private void broadcastAfterCommit(UUID conversationId, MessageResponse response) {
     afterCommit(
         () -> messagingTemplate.convertAndSend("/topic/conversations." + conversationId, response));
+  }
+
+  private void notifyMessageRecipients(
+      UUID conversationId, UUID senderId, MessageResponse response) {
+    if (pushNotificationService == null || userRepository == null || "CALL".equals(response.type()))
+      return;
+    for (ConversationMember member : memberRepository.findByIdConversationId(conversationId)) {
+      UUID recipientId = member.getId().getUserId();
+      if (recipientId.equals(senderId) || member.getLeftAt() != null) continue;
+      User sender = userRepository.findById(senderId).orElse(null);
+      if (sender == null) continue;
+      String preview = notificationPreview(response.type(), response.content());
+      afterCommit(
+          () ->
+              pushNotificationService.sendMessageNotification(
+                  recipientId,
+                  response.id(),
+                  conversationId,
+                  senderId,
+                  sender.getDisplayName(),
+                  response.type(),
+                  preview));
+    }
+  }
+
+  private String notificationPreview(String type, String content) {
+    if (content != null && !content.isBlank() && "TEXT".equals(type)) return content;
+    return switch (type) {
+      case "IMAGE" -> "Sent an image";
+      case "VOICE" -> "Sent a voice message";
+      case "FILE" -> "Sent a file";
+      case "CALL" -> "Started a call";
+      default -> "Sent a message";
+    };
   }
 
   private void afterCommit(Runnable action) {
