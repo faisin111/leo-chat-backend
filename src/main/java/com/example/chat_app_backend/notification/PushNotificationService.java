@@ -21,16 +21,19 @@ import org.springframework.stereotype.Service;
 public class PushNotificationService {
   private static final Logger log = LoggerFactory.getLogger(PushNotificationService.class);
   private final PushDeviceTokenRepository tokenRepository;
+  private final AppNotificationService appNotificationService;
   private final boolean enabled;
 
   public PushNotificationService(
       PushDeviceTokenRepository tokenRepository,
+      AppNotificationService appNotificationService,
       @Value("${firebase.project-id:}") String projectId,
       @Value("${firebase.private-key-id:}") String privateKeyId,
       @Value("${firebase.client-id:}") String clientId,
       @Value("${firebase.client-email:}") String clientEmail,
       @Value("${firebase.private-key:}") String privateKey) {
     this.tokenRepository = tokenRepository;
+    this.appNotificationService = appNotificationService;
     this.enabled = initialize(projectId, privateKeyId, clientId, clientEmail, privateKey);
   }
 
@@ -113,6 +116,13 @@ public class PushNotificationService {
       UUID callerId,
       String callerName,
       boolean isVideo) {
+    appNotificationService.create(
+        targetUserId,
+        "INCOMING_CALL",
+        isVideo ? "Incoming video call" : "Incoming call",
+        callerName + " is calling you",
+        callId,
+        conversationId);
     if (!enabled) return false;
     boolean deliveredAny = false;
     for (PushDeviceToken device : tokenRepository.findAllByUserId(targetUserId)) {
@@ -153,6 +163,8 @@ public class PushNotificationService {
       String senderName,
       String messageType,
       String preview) {
+    appNotificationService.create(
+        targetUserId, "NEW_MESSAGE", senderName, preview, messageId, conversationId);
     send(
         targetUserId,
         "NEW_MESSAGE",
@@ -175,6 +187,13 @@ public class PushNotificationService {
 
   public void sendReactionNotification(
       UUID targetUserId, UUID messageId, UUID conversationId, String senderName, String emoji) {
+    appNotificationService.create(
+        targetUserId,
+        "MESSAGE_REACTION",
+        senderName,
+        "Reacted " + emoji + " to your message",
+        messageId,
+        conversationId);
     send(
         targetUserId,
         "MESSAGE_REACTION",
