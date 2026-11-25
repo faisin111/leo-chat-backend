@@ -15,6 +15,7 @@ import com.example.chat_app_backend.chat.realtime.dto.WsReadRequest;
 import com.example.chat_app_backend.common.exception.BusinessRuleException;
 import com.example.chat_app_backend.common.exception.ForbiddenException;
 import com.example.chat_app_backend.common.exception.NotFoundException;
+import com.example.chat_app_backend.notification.PushNotificationService;
 import com.example.chat_app_backend.security.services.UserDetailsImpl;
 import com.example.chat_app_backend.user.UserRepository;
 import jakarta.validation.Valid;
@@ -40,6 +41,7 @@ public class ChatWsController {
   private final SimpUserRegistry userRegistry;
   private final UserRepository userRepository;
   private final AiService aiService;
+  private final PushNotificationService pushNotificationService;
 
   public ChatWsController(
       MessageService messageService,
@@ -47,13 +49,15 @@ public class ChatWsController {
       ConversationService conversationService,
       UserRepository userRepository,
       SimpUserRegistry userRegistry,
-      AiService aiService) {
+      AiService aiService,
+      PushNotificationService pushNotificationService) {
     this.conversationService = conversationService;
     this.messageService = messageService;
     this.messagingTemplate = messagingTemplate;
     this.userRepository = userRepository;
     this.userRegistry = userRegistry;
     this.aiService = aiService;
+    this.pushNotificationService = pushNotificationService;
   }
 
   @MessageMapping("/chat.typing")
@@ -157,6 +161,14 @@ public class ChatWsController {
             request.sdpMid(),
             request.sdpMLineIndex());
     if (userRegistry.getUser(target.getUsername()) == null) {
+      if ("INVITE".equals(action)) {
+        pushNotificationService.sendIncomingCall(
+            target.getId(),
+            request.callId(),
+            request.conversationId(),
+            user.getId(),
+            user.getUsername());
+      }
       messagingTemplate.convertAndSendToUser(
           user.getUsername(),
           "/queue/calls",
