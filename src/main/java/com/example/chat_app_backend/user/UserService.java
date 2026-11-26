@@ -39,6 +39,7 @@ public class UserService {
   @Autowired private UserRepository userRepository;
   @Autowired private RefreshSessionRepository refreshSessionRepository;
   @Autowired private MediaService mediaService;
+  @Autowired private UserPresenceService userPresenceService;
 
   /** Another user's profile as seen by {@code viewerId}: private contact fields are hidden. */
   public ResponseEntity<UserProfileResponse> getUserById(UUID id, UUID viewerId) {
@@ -213,6 +214,7 @@ public class UserService {
                 u -> {
                   Map<String, Object> map = new HashMap<>();
                   map.put("userId", u.getId());
+                  map.put("online", userPresenceService.isOnline(u.getId()));
                   map.put("lastSeenAt", u.getLastSeenAt());
                   map.put("status", u.getStatus());
                   return map;
