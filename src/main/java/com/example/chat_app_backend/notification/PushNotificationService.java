@@ -155,6 +155,35 @@ public class PushNotificationService {
     return deliveredAny;
   }
 
+  public void sendMissedCall(
+      UUID targetUserId,
+      UUID callId,
+      UUID conversationId,
+      UUID callerId,
+      String callerName,
+      boolean isVideo) {
+    String title = isVideo ? "Missed video call" : "Missed call";
+    String body = "You missed a call from " + callerName;
+    appNotificationService.create(targetUserId, "MISSED_CALL", title, body, callId, conversationId);
+    send(
+        targetUserId,
+        "MISSED_CALL",
+        title,
+        body,
+        Map.ofEntries(
+            Map.entry("type", "MISSED_CALL"),
+            Map.entry("category", "CALL"),
+            Map.entry("callType", isVideo ? "video" : "audio"),
+            Map.entry("notificationId", "missed-" + callId),
+            Map.entry("callId", callId.toString()),
+            Map.entry("conversationId", conversationId.toString()),
+            Map.entry("callerId", callerId.toString()),
+            Map.entry("callerName", callerName),
+            Map.entry("timestamp", Instant.now().toString()),
+            Map.entry("groupKey", "calls"),
+            Map.entry("clickAction", "OPEN_CONVERSATION")));
+  }
+
   public void sendMessageNotification(
       UUID targetUserId,
       UUID messageId,

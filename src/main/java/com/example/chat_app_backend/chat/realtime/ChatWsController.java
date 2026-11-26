@@ -52,6 +52,7 @@ public class ChatWsController {
   private final AiService aiService;
   private final PushNotificationService pushNotificationService;
   private final PendingCallSignalService pendingCallSignalService;
+  private final ActiveCallService activeCallService;
 
   public ChatWsController(
       MessageService messageService,
@@ -61,7 +62,8 @@ public class ChatWsController {
       SimpUserRegistry userRegistry,
       AiService aiService,
       PushNotificationService pushNotificationService,
-      PendingCallSignalService pendingCallSignalService) {
+      PendingCallSignalService pendingCallSignalService,
+      ActiveCallService activeCallService) {
     this.conversationService = conversationService;
     this.messageService = messageService;
     this.messagingTemplate = messagingTemplate;
@@ -70,6 +72,7 @@ public class ChatWsController {
     this.aiService = aiService;
     this.pushNotificationService = pushNotificationService;
     this.pendingCallSignalService = pendingCallSignalService;
+    this.activeCallService = activeCallService;
   }
 
   @MessageMapping("/chat.typing")
@@ -170,6 +173,15 @@ public class ChatWsController {
     if ("INVITE".equals(action)) {
       messageService.recordCallMessage(user.getId(), request.conversationId(), request.callId());
       boolean isVideo = request.sdp() != null && request.sdp().contains("m=video");
+      activeCallService.start(
+          new ActiveCallService.CallState(
+              request.callId(),
+              request.conversationId(),
+              user.getId(),
+              target.getId(),
+              user.getUsername(),
+              isVideo,
+              false));
       pushSent =
           pushNotificationService.sendIncomingCall(
               target.getId(),
@@ -178,7 +190,22 @@ public class ChatWsController {
               user.getId(),
               user.getUsername(),
               isVideo);
-    } else if ("END".equals(action) || "REJECT".equals(action) || "BUSY".equals(action)) {
+    } else if ("ACCEPT".equals(action) || "READY".equals(action) || "ANSWER".equals(action)) {
+      activeCallService.markAnswered(request.callId());
+    } else if ("END".equals(action)) {
+      ActiveCallService.CallState missed = activeCallService.takeMissed(request.callId());
+      if (missed != null && user.getId().equals(missed.callerId())) {
+        pushNotificationService.sendMissedCall(
+            missed.calleeId(),
+            missed.callId(),
+            missed.conversationId(),
+            missed.callerId(),
+            missed.callerName(),
+            missed.video());
+      }
+      pendingCallSignalService.clearCall(request.callId());
+    } else if ("REJECT".equals(action) || "BUSY".equals(action)) {
+      activeCallService.finish(request.callId());
       pendingCallSignalService.clearCall(request.callId());
     }
 
