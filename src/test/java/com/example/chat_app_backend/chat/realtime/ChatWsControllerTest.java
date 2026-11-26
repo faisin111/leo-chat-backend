@@ -45,6 +45,7 @@ class ChatWsControllerTest {
   private final PushNotificationService pushNotificationService =
       mock(PushNotificationService.class);
   private final PendingCallSignalService pendingCallSignalService = new PendingCallSignalService();
+  private final ActiveCallService activeCallService = new ActiveCallService();
 
   private final ChatWsController controller =
       new ChatWsController(
@@ -55,7 +56,8 @@ class ChatWsControllerTest {
           userRegistry,
           aiService,
           pushNotificationService,
-          pendingCallSignalService);
+          pendingCallSignalService,
+          activeCallService);
 
   private static User userWithId(UUID id, String username) throws Exception {
     User user = new User(username, username + "@example.com", "hash", "ROLE_USER", username);
