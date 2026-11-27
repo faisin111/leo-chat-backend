@@ -14,6 +14,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ConversationRepository extends JpaRepository<Conversation, UUID> {
+  long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(Instant from, Instant to);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("SELECT c FROM Conversation c WHERE c.id = :id")
   Optional<Conversation> lockById(@Param("id") UUID id);

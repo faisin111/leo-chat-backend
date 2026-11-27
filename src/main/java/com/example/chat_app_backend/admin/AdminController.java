@@ -1,5 +1,6 @@
 package com.example.chat_app_backend.admin;
 
+import com.example.chat_app_backend.admin.dto.AdminStatsSeriesResponse;
 import com.example.chat_app_backend.admin.dto.AdminUserResponse;
 import com.example.chat_app_backend.admin.dto.AuditLogPageResponse;
 import com.example.chat_app_backend.admin.dto.ReportPageResponse;
@@ -55,6 +56,14 @@ public class AdminController {
   @GetMapping("/stats/overview")
   public ResponseEntity<Map<String, Object>> getStatsOverview() {
     return adminService.getStatsOverview();
+  }
+
+  @Operation(summary = "Get chart time series")
+  @ApiResponse(responseCode = "200", description = "Daily admin dashboard chart data")
+  @GetMapping("/stats/timeseries")
+  public ResponseEntity<AdminStatsSeriesResponse> getStatsTimeseries(
+      @RequestParam(defaultValue = "30") int days) {
+    return ResponseEntity.ok(adminService.getStatsTimeseries(days));
   }
 
   @Operation(summary = "List and filter users")

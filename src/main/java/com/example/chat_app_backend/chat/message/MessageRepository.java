@@ -1,6 +1,7 @@
 package com.example.chat_app_backend.chat.message;
 
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
+  long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(Instant from, Instant to);
 
   void deleteByConversationId(UUID conversationId);
 

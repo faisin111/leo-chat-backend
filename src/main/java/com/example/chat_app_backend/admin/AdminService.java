@@ -1,5 +1,7 @@
 package com.example.chat_app_backend.admin;
 
+import com.example.chat_app_backend.admin.dto.AdminStatsPoint;
+import com.example.chat_app_backend.admin.dto.AdminStatsSeriesResponse;
 import com.example.chat_app_backend.admin.dto.AdminUserResponse;
 import com.example.chat_app_backend.auth.AuthService;
 import com.example.chat_app_backend.chat.conversation.Conversation;
@@ -15,6 +17,12 @@ import com.example.chat_app_backend.common.exception.ForbiddenException;
 import com.example.chat_app_backend.user.User;
 import com.example.chat_app_backend.user.UserRepository;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +55,53 @@ public class AdminService {
             "totalUsers", totalUsers,
             "totalConversations", totalConversations,
             "totalReports", totalReports));
+  }
+
+  public AdminStatsSeriesResponse getStatsTimeseries(int days) {
+    if (days < 1 || days > 90) {
+      throw new BusinessRuleException("days must be between 1 and 90");
+    }
+    LocalDate to = LocalDate.now(ZoneOffset.UTC);
+    LocalDate from = to.minusDays(days - 1L);
+    Map<String, List<AdminStatsPoint>> series = new LinkedHashMap<>();
+    series.put("users", new ArrayList<>());
+    series.put("conversations", new ArrayList<>());
+    series.put("messages", new ArrayList<>());
+    series.put("reports", new ArrayList<>());
+
+    for (int offset = 0; offset < days; offset++) {
+      LocalDate date = from.plusDays(offset);
+      Instant start = date.atStartOfDay(ZoneOffset.UTC).toInstant();
+      Instant end = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+      series
+          .get("users")
+          .add(
+              new AdminStatsPoint(
+                  date,
+                  userRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(start, end)));
+      series
+          .get("conversations")
+          .add(
+              new AdminStatsPoint(
+                  date,
+                  conversationRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                      start, end)));
+      series
+          .get("messages")
+          .add(
+              new AdminStatsPoint(
+                  date,
+                  messageRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                      start, end)));
+      series
+          .get("reports")
+          .add(
+              new AdminStatsPoint(
+                  date,
+                  reportRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                      start, end)));
+    }
+    return new AdminStatsSeriesResponse(from, to, days, series);
   }
 
   public ResponseEntity<
